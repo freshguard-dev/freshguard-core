@@ -1,0 +1,25 @@
+{
+  "name": "freshguard-basic-example",
+  "version": "1.0.0",
+  "description": "Basic FreshGuard Core freshness monitoring example",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "setup": "tsx setup.ts",
+    "monitor": "tsx monitor.ts",
+    "start": "npm run setup && npm run monitor",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down"
+  },
+  "dependencies": {
+    "@thias-se/freshguard-core": "^0.1.0",
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.11",
+    "tsx": "^4.20.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

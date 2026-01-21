@@ -1,0 +1,52 @@
+FreshGuard - Open Core Licensing
+
+The FreshGuard project uses dual licensing:
+
+================================================================================
+1. CORE PACKAGE (packages/core/, packages/types/)
+================================================================================
+
+   MIT License - See packages/core/LICENSE and packages/types/LICENSE
+
+   - Open source, free to self-host, modify, and distribute
+   - Used by the open source community and self-hosters
+   - Includes: monitoring engine, connectors, database schema
+
+================================================================================
+2. CLOUD PACKAGE (packages/cloud/)
+================================================================================
+
+   Proprietary License - See packages/cloud/LICENSE
+
+   - The multi-tenant SaaS implementation is proprietary
+   - Covers: multi-tenant orchestration, scheduler, auth, dashboard
+   - Not available for self-hosting or redistribution
+   - Available as managed service at https://freshguard.dev
+
+================================================================================
+Summary
+================================================================================
+
+You may:
+  ✅ Use @thias-se/freshguard-core under MIT license (self-hosting)
+  ✅ Contribute to the open source core
+  ✅ Build commercial products using @thias-se/freshguard-core
+  ✅ Modify and redistribute @thias-se/freshguard-core
+
+You may NOT:
+  ❌ Copy or redistribute packages/cloud/
+  ❌ Self-host the cloud package
+  ❌ Extract the multi-tenant architecture
+
+For questions or licensing inquiries:
+- Open source: https://github.com/freshguard/freshguard/discussions
+- Commercial: legal@freshguard.dev
+
+================================================================================
+
+This dual licensing model allows us to:
+1. Provide a free, open source monitoring engine for the community
+2. Fund development through our managed SaaS offering
+3. Maintain a sustainable business while giving back to open source
+
+Thank you for using FreshGuard!

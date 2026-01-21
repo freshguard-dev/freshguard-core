@@ -1,0 +1,187 @@
+name: Publish to NPM
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_USER: test
+          POSTGRES_DB: freshguard_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm type-check
+
+      - name: Build packages
+        run: pnpm build
+
+      - name: Run full test suite
+        run: pnpm test:coverage
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/freshguard_test
+
+      - name: Security audit
+        run: pnpm audit --audit-level moderate
+
+      - name: Verify open-core compliance
+        run: |
+          echo "🔍 Final verification of open-core compliance..."
+
+          # Check for forbidden multi-tenant patterns
+          FORBIDDEN_PATTERNS=(
+            "workspaceId"
+            "workspace_id"
+            "multi.tenant"
+            "User.*interface"
+            "Workspace.*interface"
+            "AuthContext"
+          )
+
+          EXIT_CODE=0
+          for pattern in "${FORBIDDEN_PATTERNS[@]}"; do
+            if grep -r -i "$pattern" src/ --include="*.ts" --include="*.js"; then
+              echo "❌ Found forbidden pattern: $pattern"
+              EXIT_CODE=1
+            fi
+          done
+
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "❌ Multi-tenant contamination detected - cannot publish"
+            exit 1
+          fi
+
+          echo "✅ Open-core compliance verified"
+
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.extract_version.outputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm build
+
+      - name: Extract version from tag
+        id: extract_version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Update package version
+        run: |
+          # Update package to the tagged version
+          pnpm version ${{ steps.extract_version.outputs.version }} --no-git-tag-version
+
+      - name: Publish package
+        run: pnpm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ steps.extract_version.outputs.version }}
+          body: |
+            ## FreshGuard Core v${{ steps.extract_version.outputs.version }}
+
+            ### 🚀 Installation
+
+            ```bash
+            pnpm install @thias-se/freshguard-core
+            ```
+
+            ### 📖 Documentation
+
+            See [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md) for usage instructions.
+
+            ### 🔧 What's in this release
+
+            - Core monitoring algorithms (freshness, volume anomaly detection)
+            - Database connectors (PostgreSQL, DuckDB)
+            - Single-tenant schema and types
+            - CLI tools for self-hosted installations
+
+            ### ⚖️ License
+
+            MIT License - see [LICENSE](LICENSE) file for details.
+
+            ### 🏗️ Open Core Model
+
+            This is the open-source core of FreshGuard. See [docs/LICENSE_CLARIFICATION.md](docs/LICENSE_CLARIFICATION.md) for details about the open-core model.
+          draft: false
+          prerelease: false
+
+  verify-published:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for npm propagation
+        run: sleep 30
+
+      - name: Test published packages
+        run: |
+          mkdir test-install
+          cd test-install
+          pnpm init -y
+
+          echo "Testing published packages..."
+          pnpm install @thias-se/freshguard-core@${{ needs.publish.outputs.version }}
+
+          node -e "
+            const { checkFreshness, createDatabase, DataSourceType } = require('@thias-se/freshguard-core');
+            console.log('✅ Published package works correctly');
+          "
+        env:
+          version: ${{ needs.publish.outputs.version }}

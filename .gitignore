@@ -1,0 +1,412 @@
+# FreshGuard - Comprehensive .gitignore
+# For Node.js, Docker, VS Code, macOS, Windows development
+
+# ===================================
+# Environment & Configuration Files
+# ===================================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*
+!.env.example
+
+# Docker override files
+docker-compose.override.yml
+docker-compose.local.yml
+
+# ===================================
+# Node.js
+# ===================================
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# Grunt intermediate storage (https://gruntjs.com/creating-plugins#storing-task-files)
+.grunt
+
+# Bower dependency directory (https://bower.io/)
+bower_components
+
+# node-waf configuration
+.lock-wscript
+
+# Compiled binary addons (https://nodejs.org/api/addons.html)
+build/Release
+
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# Snowpack dependency directory (https://snowpack.dev/)
+web_modules/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# parcel-bundler cache (https://parceljs.org/)
+.cache
+.parcel-cache
+
+# Next.js build output
+.next
+
+# Nuxt.js build / generate output
+.nuxt
+dist/
+
+# Gatsby files
+.cache/
+public/
+
+# Svelte build output
+build/
+.svelte-kit/
+
+# Storybook build outputs
+.out
+.storybook-out
+
+# Temporary folders
+tmp/
+temp/
+
+# ===================================
+# Database & Data Files
+# ===================================
+# Local database files
+*.db
+*.sqlite
+*.sqlite3
+*.duckdb
+*.ddb
+
+# Database backup files
+*.sql.backup
+*.dump
+*.bak
+
+# Data directories
+data/
+db_data/
+postgres_data/
+mysql_data/
+mongo_data/
+
+# Log files
+logs/
+*.log
+
+# ===================================
+# Docker
+# ===================================
+# Docker volumes and data
+docker-compose.override.yml
+.dockerignore
+
+# ===================================
+# VS Code
+# ===================================
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+
+# Local History for Visual Studio Code
+.history/
+
+# Built Visual Studio Code Extensions
+*.vsix
+
+# ===================================
+# macOS
+# ===================================
+# General
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Icon must end with two \r
+Icon
+
+# Thumbnails
+._*
+
+# Files that might appear in the root of a volume
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Directories potentially created on remote AFP share
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# ===================================
+# Windows
+# ===================================
+# Windows thumbnail cache files
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+
+# Dump file
+*.stackdump
+
+# Folder config file
+[Dd]esktop.ini
+
+# Recycle Bin used on file shares
+$RECYCLE.BIN/
+
+# Windows Installer files
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+
+# Windows shortcuts
+*.lnk
+
+# ===================================
+# IDEs & Editors
+# ===================================
+# JetBrains IDEs
+.idea/
+*.swp
+*.swo
+*~
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+
+# ===================================
+# Build & Distribution
+# ===================================
+# Build outputs
+dist/
+build/
+out/
+target/
+
+# Generated files
+*.generated.*
+*.gen.*
+
+# Compiled source
+*.compiled
+*.min.js
+*.min.css
+
+# ===================================
+# Testing
+# ===================================
+# Test outputs
+test-results/
+coverage/
+.nyc_output/
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Jest
+__tests__/__snapshots__/
+
+# ===================================
+# Cloud & Deployment
+# ===================================
+# Vercel
+.vercel
+
+# Cloudflare Workers
+.wrangler/
+worker/
+
+# Netlify
+.netlify/
+
+# AWS
+.aws/
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# ===================================
+# Security & Credentials
+# ===================================
+# API keys and secrets
+secrets/
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+
+# Service account files
+service-account.json
+google-credentials.json
+gcp-key.json
+
+# SSH keys
+id_rsa
+id_ed25519
+*.ppk
+
+# ===================================
+# Monitoring & Analytics
+# ===================================
+# Error tracking
+.sentry/
+sentry.properties
+
+# Analytics
+.analytics/
+
+# ===================================
+# Documentation
+# ===================================
+# Generated documentation
+docs/generated/
+docs/build/
+
+# ===================================
+# Project Specific
+# ===================================
+# Backup files
+*.backup
+*.bak
+*.orig
+
+# Archive files
+*.tar.gz
+*.zip
+*.rar
+
+# Editor config
+.editorconfig.local
+
+# Local notes and todos
+TODO.local.md
+NOTES.local.md
+scratch/
+playground/
+
+# Local scripts
+scripts/local/
+run-local.*
+
+# Development certificates
+certificates/
+certs/
+ssl/
+
+# ===================================
+# Runtime & Process Files
+# ===================================
+# Runtime directories
+runtime/
+run/
+
+# Process ID files
+*.pid
+
+# Lock files (keep package-lock.json and pnpm-lock.yaml for reproducible builds)
+yarn.lock
+# Note: package-lock.json and pnpm-lock.yaml are intentionally NOT ignored
+
+# ===================================
+# Cache & Temporary
+# ===================================
+# Various cache directories
+.cache/
+cache/
+.tmp/
+tmp/
+temp/
+
+# OS generated files
+.fuse_hidden*
+.nfs*
+
+# ===================================
+# KEEP THESE FILES (explicit inclusions)
+# ===================================
+# Configuration templates
+!.env.example
+!.env.template
+!config.example.js
+!config.template.json
+
+# Docker templates
+!docker-compose.example.yml
+!Dockerfile.example
+
+# Documentation
+!README.md
+!CHANGELOG.md
+!LICENSE
+!docs/
+
+# VS Code recommended settings
+!.vscode/settings.json
+!.vscode/extensions.json

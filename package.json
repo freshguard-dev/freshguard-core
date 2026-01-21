@@ -1,0 +1,62 @@
+{
+  "name": "@thias-se/freshguard-core",
+  "version": "0.1.0",
+  "description": "Open source data freshness monitoring engine",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./cli": {
+      "types": "./dist/cli/index.d.ts",
+      "default": "./dist/cli/index.js"
+    }
+  },
+  "bin": {
+    "freshguard": "./dist/cli/index.js"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "type-check": "tsc --noEmit",
+    "test": "vitest",
+    "test:coverage": "vitest --coverage",
+    "clean": "rm -rf dist",
+    "prepare": "pnpm build",
+    "pre-commit": "pnpm build && pnpm type-check && pnpm test:coverage",
+    "prepublishOnly": "pnpm build && pnpm test"
+  },
+  "dependencies": {
+    "@duckdb/node-api": "^1.4.3-r.3",
+    "drizzle-orm": "^0.45.1",
+    "pg": "^8.17.2",
+    "postgres": "^3.4.8"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.16.0",
+    "@vitest/coverage-v8": "^4.0.17",
+    "pnpm": "^10.28.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.17"
+  },
+  "engines": {
+    "node": ">20.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/thias-se/freshguard-core.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -120,11 +120,6 @@ jobs:
         id: extract_version
         run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
-      - name: Update package version
-        run: |
-          # Update package to the tagged version
-          pnpm version ${{ steps.extract_version.outputs.version }} --no-git-tag-version
-
       - name: Publish package
         run: pnpm publish --access public --provenance
 

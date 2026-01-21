@@ -112,7 +112,7 @@ export class ConnectionError extends FreshGuardError {
     this.port = port;
   }
 
-  private static sanitizeConnectionError(message: string, originalError?: Error): string {
+  private static sanitizeConnectionError(message: string, _originalError?: Error): string {
     const lowerMessage = message.toLowerCase();
 
     // Map specific connection errors to safe messages
@@ -161,7 +161,7 @@ export class ConnectionError extends FreshGuardError {
     );
   }
 
-  static databaseNotFound(database: string, host: string): ConnectionError {
+  static databaseNotFound(_database: string, host: string): ConnectionError {
     return new ConnectionError(
       'Database not found',
       host
@@ -222,7 +222,7 @@ export class QueryError extends FreshGuardError {
     this.table = table;
   }
 
-  private static sanitizeQueryError(message: string, originalError?: Error): string {
+  private static sanitizeQueryError(message: string, _originalError?: Error): string {
     const lowerMessage = message.toLowerCase();
 
     if (lowerMessage.includes('syntax error')) {
@@ -257,7 +257,7 @@ export class QueryError extends FreshGuardError {
     );
   }
 
-  static columnNotFound(column: string, table: string): QueryError {
+  static columnNotFound(_column: string, table: string): QueryError {
     return new QueryError(
       'Column does not exist',
       'column_access',
@@ -292,7 +292,7 @@ export class ConfigurationError extends FreshGuardError {
     );
   }
 
-  static invalidValue(field: string, value: string, expected: string): ConfigurationError {
+  static invalidValue(field: string, _value: string, expected: string): ConfigurationError {
     return new ConfigurationError(
       `Invalid value for ${field}: expected ${expected}`,
       field
@@ -383,11 +383,11 @@ export class ErrorHandler {
       }
 
       // Generic error fallback
-      return new FreshGuardError('Operation failed', 'UNKNOWN_ERROR', true) as any;
+      return new QueryError('Operation failed', 'unknown_operation');
     }
 
     // Handle non-Error objects
-    return new FreshGuardError('Unknown error occurred', 'UNKNOWN_ERROR', true) as any;
+    return new QueryError('Unknown error occurred', 'unknown_operation');
   }
 
   /**

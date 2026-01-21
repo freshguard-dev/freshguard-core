@@ -449,7 +449,7 @@ export class DuckDBConnector extends BaseConnector {
    * Legacy query method for backward compatibility
    * @deprecated Direct SQL queries are not allowed for security reasons
    */
-  async query<T = unknown>(sql: string): Promise<T[]> {
+  async query<T = unknown>(_sql: string): Promise<T[]> {
     throw new Error(
       'Direct SQL queries are not allowed for security reasons. Use specific methods like getRowCount(), getMaxTimestamp(), etc.'
     );

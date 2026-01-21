@@ -154,7 +154,7 @@ export class BigQueryConnector extends BaseConnector {
           query: sql,
           location: this.location,
           maxResults: this.maxRows,
-          timeoutMs: this.queryTimeout,
+          jobTimeoutMs: this.queryTimeout,
           useLegacySql: false, // Force standard SQL for security
         }),
         this.queryTimeout
@@ -377,7 +377,7 @@ export class BigQueryConnector extends BaseConnector {
 
     if (parts.length === 3) {
       // project.dataset.table format
-      const [project, dataset, table] = parts;
+      const [project, _dataset, _table] = parts;
 
       // Validate project matches
       if (project !== this.projectId) {
@@ -498,7 +498,7 @@ export class BigQueryConnector extends BaseConnector {
    * Legacy query method for backward compatibility
    * @deprecated Direct SQL queries are not allowed for security reasons
    */
-  async query<T = unknown>(sql: string): Promise<T[]> {
+  async query<T = unknown>(_sql: string): Promise<T[]> {
     throw new Error(
       'Direct SQL queries are not allowed for security reasons. Use specific methods like getRowCount(), getMaxTimestamp(), etc.'
     );

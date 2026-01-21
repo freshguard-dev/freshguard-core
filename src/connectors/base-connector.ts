@@ -17,9 +17,7 @@ import { DEFAULT_SECURITY_CONFIG } from '../types/connector.js';
 
 import {
   SecurityError,
-  TimeoutError,
-  ConnectionError,
-  ErrorHandler
+  TimeoutError
 } from '../errors/index.js';
 
 /**
@@ -266,7 +264,7 @@ export abstract class BaseConnector implements Connector {
    * Get last modified timestamp for a table
    * Implementation varies by database type
    */
-  async getLastModified(table: string): Promise<Date | null> {
+  async getLastModified(_table: string): Promise<Date | null> {
     // Default implementation - subclasses can override for database-specific methods
     // For most databases, this would be the same as getting max of a timestamp column
     // but specific implementations should override this

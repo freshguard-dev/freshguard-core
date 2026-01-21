@@ -98,7 +98,6 @@ export class SnowflakeConnector extends BaseConnector {
         warehouse: this.warehouse || undefined,
         authenticator: 'SNOWFLAKE', // Force standard auth for security
         timeout: this.connectionTimeout, // Connection timeout
-        networkTimeout: this.connectionTimeout, // Network timeout
       };
 
       // Create connection
@@ -385,10 +384,10 @@ export class SnowflakeConnector extends BaseConnector {
 
     if (parts.length === 3) {
       // database.schema.table format
-      const [database, schema, table] = parts;
+      const [database, _schema, _table] = parts;
 
-      // Validate database matches
-      if (database.toUpperCase() !== this.database.toUpperCase()) {
+      // Validate database matches (database is validated in constructor, so it's safe to use)
+      if (database && database.toUpperCase() !== this.database!.toUpperCase()) {
         throw new SecurityError('Table database does not match configured database');
       }
 
@@ -505,7 +504,7 @@ export class SnowflakeConnector extends BaseConnector {
    * Legacy query method for backward compatibility
    * @deprecated Direct SQL queries are not allowed for security reasons
    */
-  async query<T = unknown>(sql: string): Promise<T[]> {
+  async query<T = unknown>(_sql: string): Promise<T[]> {
     throw new Error(
       'Direct SQL queries are not allowed for security reasons. Use specific methods like getRowCount(), getMaxTimestamp(), etc.'
     );

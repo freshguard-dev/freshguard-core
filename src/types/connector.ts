@@ -134,6 +134,9 @@ export interface SecurityConfig {
 
   /** Blocked SQL keywords */
   blockedKeywords: string[];
+
+  /** Enable detailed logging for debugging */
+  enableDetailedLogging?: boolean;
 }
 
 /**

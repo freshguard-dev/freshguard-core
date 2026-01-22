@@ -1,8 +1,9 @@
 /**
- * Base connector class with built-in security validation
+ * Base connector class with built-in security validation and observability
  *
  * All database connectors must extend this class to ensure consistent
- * security measures including query validation, timeouts, and error sanitization.
+ * security measures including query validation, timeouts, error sanitization,
+ * structured logging, and metrics collection.
  *
  * @license MIT
  */
@@ -20,8 +21,11 @@ import {
   TimeoutError
 } from '../errors/index.js';
 
+import { StructuredLogger, createDatabaseLogger, LogContext, logTimedOperation } from '../observability/logger.js';
+import { MetricsCollector, createComponentMetrics, timeOperation } from '../observability/metrics.js';
+
 /**
- * Abstract base connector with security built-in
+ * Abstract base connector with security and observability built-in
  *
  * Provides:
  * - SQL injection prevention
@@ -29,12 +33,17 @@ import {
  * - Connection validation
  * - Error sanitization
  * - Read-only query patterns
+ * - Structured logging
+ * - Metrics collection
  */
 export abstract class BaseConnector implements Connector {
   protected readonly connectionTimeout: number;
   protected readonly queryTimeout: number;
   protected readonly maxRows: number;
   protected readonly requireSSL: boolean;
+  protected readonly logger: StructuredLogger;
+  protected readonly metrics: MetricsCollector;
+  protected readonly enableDetailedLogging: boolean;
   private readonly allowedPatterns: RegExp[];
   private readonly blockedKeywords: string[];
 
@@ -52,8 +61,31 @@ export abstract class BaseConnector implements Connector {
     this.allowedPatterns = security.allowedQueryPatterns;
     this.blockedKeywords = security.blockedKeywords;
 
+    // Initialize observability
+    const databaseType = this.constructor.name.replace('Connector', '').toLowerCase();
+    this.logger = createDatabaseLogger(databaseType, {
+      baseContext: {
+        host: config.host,
+        database: config.database,
+        connector: databaseType
+      }
+    });
+    this.metrics = createComponentMetrics(`database_${databaseType}`);
+    this.enableDetailedLogging = security.enableDetailedLogging !== false;
+
     // Validate configuration
     this.validateConfig(config);
+
+    // Log connector initialization
+    this.logger.info('Database connector initialized', {
+      database: config.database,
+      host: config.host,
+      port: config.port,
+      ssl: config.ssl,
+      connectionTimeout: this.connectionTimeout,
+      queryTimeout: this.queryTimeout,
+      maxRows: this.maxRows
+    });
   }
 
   /**
@@ -96,6 +128,10 @@ export abstract class BaseConnector implements Connector {
     // Check for blocked keywords
     for (const keyword of this.blockedKeywords) {
       if (normalizedSql.includes(keyword.toUpperCase())) {
+        this.logger.warn('Blocked SQL keyword detected', {
+          keyword,
+          sqlPreview: sql.substring(0, 100)
+        });
         throw new SecurityError(`Blocked keyword detected: ${keyword}`);
       }
     }
@@ -103,7 +139,17 @@ export abstract class BaseConnector implements Connector {
     // Check if query matches allowed patterns
     const isAllowed = this.allowedPatterns.some(pattern => pattern.test(sql));
     if (!isAllowed) {
+      this.logger.warn('Query pattern not allowed', {
+        sqlPreview: sql.substring(0, 100),
+        allowedPatterns: this.allowedPatterns.map(p => p.source)
+      });
       throw new SecurityError('Query pattern not allowed');
+    }
+
+    if (this.enableDetailedLogging) {
+      this.logger.debug('Query validation passed', {
+        sqlPreview: sql.substring(0, 100)
+      });
     }
   }
 
@@ -189,21 +235,42 @@ export abstract class BaseConnector implements Connector {
 
     this.validateQuery(sql);
 
-    try {
-      const result = await this.executeWithTimeout(
-        () => this.executeQuery(sql),
-        this.queryTimeout
-      );
+    return logTimedOperation(
+      this.logger,
+      'getRowCount',
+      async () => {
+        return timeOperation(
+          this.metrics,
+          'getRowCount',
+          this.config.database,
+          table,
+          async () => {
+            const result = await this.executeWithTimeout(
+              () => this.executeQuery(sql),
+              this.queryTimeout
+            );
 
-      if (!result || result.length === 0) {
-        throw new Error('No result returned');
-      }
+            if (!result || result.length === 0) {
+              throw new Error('No result returned');
+            }
 
-      const count = parseInt(result[0].count || '0', 10);
-      return isNaN(count) ? 0 : count;
-    } catch (error) {
-      throw new Error(this.sanitizeError(error));
-    }
+            const count = parseInt(result[0].count || '0', 10);
+            const finalCount = isNaN(count) ? 0 : count;
+
+            if (this.enableDetailedLogging) {
+              this.logger.debug('Retrieved row count', {
+                table,
+                count: finalCount,
+                query: sql
+              });
+            }
+
+            return finalCount;
+          }
+        );
+      },
+      { table, operation: 'getRowCount' }
+    );
   }
 
   /**
@@ -216,21 +283,50 @@ export abstract class BaseConnector implements Connector {
 
     this.validateQuery(sql);
 
-    try {
-      const result = await this.executeWithTimeout(
-        () => this.executeQuery(sql),
-        this.queryTimeout
-      );
+    return logTimedOperation(
+      this.logger,
+      'getMaxTimestamp',
+      async () => {
+        return timeOperation(
+          this.metrics,
+          'getMaxTimestamp',
+          this.config.database,
+          table,
+          async () => {
+            const result = await this.executeWithTimeout(
+              () => this.executeQuery(sql),
+              this.queryTimeout
+            );
 
-      if (!result || result.length === 0 || !result[0].max_date) {
-        return null;
-      }
+            if (!result || result.length === 0 || !result[0].max_date) {
+              if (this.enableDetailedLogging) {
+                this.logger.debug('No timestamp found', {
+                  table,
+                  column,
+                  query: sql
+                });
+              }
+              return null;
+            }
 
-      const dateValue = result[0].max_date;
-      return dateValue instanceof Date ? dateValue : new Date(dateValue);
-    } catch (error) {
-      throw new Error(this.sanitizeError(error));
-    }
+            const dateValue = result[0].max_date;
+            const finalDate = dateValue instanceof Date ? dateValue : new Date(dateValue);
+
+            if (this.enableDetailedLogging) {
+              this.logger.debug('Retrieved max timestamp', {
+                table,
+                column,
+                maxTimestamp: finalDate.toISOString(),
+                query: sql
+              });
+            }
+
+            return finalDate;
+          }
+        );
+      },
+      { table, column, operation: 'getMaxTimestamp' }
+    );
   }
 
   /**
@@ -276,8 +372,42 @@ export abstract class BaseConnector implements Connector {
    */
   protected validateResultSize(results: any[]): void {
     if (results.length > this.maxRows) {
+      this.logger.error('Query returned too many rows', {
+        resultCount: results.length,
+        maxRows: this.maxRows
+      });
       throw new SecurityError(`Query returned too many rows (max ${this.maxRows})`);
     }
+
+    if (this.enableDetailedLogging && results.length > this.maxRows * 0.8) {
+      this.logger.warn('Query returned close to max row limit', {
+        resultCount: results.length,
+        maxRows: this.maxRows,
+        utilizationPercent: Math.round((results.length / this.maxRows) * 100)
+      });
+    }
+  }
+
+  /**
+   * Helper method for specific connectors to log operations with consistent format
+   */
+  protected logOperation(operation: string, context: LogContext): void {
+    this.logger.info(`Database operation: ${operation}`, {
+      ...context,
+      database: this.config.database,
+      host: this.config.host
+    });
+  }
+
+  /**
+   * Helper method for specific connectors to log errors with consistent format
+   */
+  protected logError(operation: string, error: Error, context?: LogContext): void {
+    this.logger.error(`Database operation failed: ${operation}`, error, {
+      ...context,
+      database: this.config.database,
+      host: this.config.host
+    });
   }
 
   // ==============================================

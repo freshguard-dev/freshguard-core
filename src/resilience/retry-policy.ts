@@ -3,9 +3,13 @@
  *
  * Provides exponential backoff retry with jitter, configurable retry conditions,
  * and comprehensive error handling for resilient operations.
+ * Includes integrated observability with structured logging and metrics.
  *
  * @license MIT
  */
+
+import { StructuredLogger, createComponentLogger, LogContext } from '../observability/logger.js';
+import { MetricsCollector, createComponentMetrics } from '../observability/metrics.js';
 
 // ==============================================
 // Types and Interfaces
@@ -33,6 +37,12 @@ export interface RetryConfig {
   attemptTimeout?: number;
   /** Policy name for logging */
   name?: string;
+  /** Logger instance for observability */
+  logger?: StructuredLogger;
+  /** Metrics collector for observability */
+  metrics?: MetricsCollector;
+  /** Enable detailed logging */
+  enableDetailedLogging?: boolean;
 }
 
 /**
@@ -285,10 +295,13 @@ async function executeWithTimeout<T>(
 // ==============================================
 
 /**
- * Retry Policy with exponential backoff and comprehensive configuration
+ * Retry Policy with exponential backoff, comprehensive configuration, and integrated observability
  */
 export class RetryPolicy {
-  private config: Required<RetryConfig>;
+  private config: Required<Omit<RetryConfig, 'logger' | 'metrics'>>;
+  private logger: StructuredLogger;
+  private metrics: MetricsCollector;
+  private enableDetailedLogging: boolean;
   private stats: RetryStats = {
     totalExecutions: 0,
     successfulExecutions: 0,
@@ -303,12 +316,21 @@ export class RetryPolicy {
   constructor(config: RetryConfig = {}) {
     this.config = {
       ...DEFAULT_CONFIG,
-      retryCondition: defaultRetryCondition,
-      delayFunction: calculateDelay,
-      attemptTimeout: 0, // No timeout by default
-      name: 'RetryPolicy',
-      ...config
+      retryCondition: config.retryCondition || defaultRetryCondition,
+      delayFunction: config.delayFunction || calculateDelay,
+      attemptTimeout: config.attemptTimeout || 0, // No timeout by default
+      name: config.name || 'RetryPolicy',
+      maxAttempts: config.maxAttempts || DEFAULT_CONFIG.maxAttempts,
+      baseDelay: config.baseDelay || DEFAULT_CONFIG.baseDelay,
+      maxDelay: config.maxDelay || DEFAULT_CONFIG.maxDelay,
+      backoffMultiplier: config.backoffMultiplier || DEFAULT_CONFIG.backoffMultiplier,
+      enableJitter: config.enableJitter !== undefined ? config.enableJitter : DEFAULT_CONFIG.enableJitter
     };
+
+    // Initialize observability
+    this.logger = config.logger || createComponentLogger('retry-policy');
+    this.metrics = config.metrics || createComponentMetrics('retry_policy');
+    this.enableDetailedLogging = config.enableDetailedLogging !== false;
 
     // Validate configuration
     if (this.config.maxAttempts < 1) {
@@ -320,6 +342,16 @@ export class RetryPolicy {
     if (this.config.maxDelay < this.config.baseDelay) {
       throw new Error('maxDelay must be >= baseDelay');
     }
+
+    // Log retry policy initialization
+    this.logger.info('Retry policy initialized', {
+      policyName: this.config.name,
+      maxAttempts: this.config.maxAttempts,
+      baseDelay: this.config.baseDelay,
+      maxDelay: this.config.maxDelay,
+      backoffMultiplier: this.config.backoffMultiplier,
+      enableJitter: this.config.enableJitter
+    });
   }
 
   /**
@@ -344,6 +376,14 @@ export class RetryPolicy {
 
     this.stats.totalExecutions++;
     this.stats.lastExecutionTime = new Date();
+
+    // Log retry execution start
+    if (this.enableDetailedLogging) {
+      this.logger.debug('Starting retry execution', {
+        policyName: this.config.name,
+        maxAttempts: this.config.maxAttempts
+      });
+    }
 
     for (let attempt = 1; attempt <= this.config.maxAttempts; attempt++) {
       const attemptStartTime = new Date();
@@ -375,14 +415,34 @@ export class RetryPolicy {
         };
         attempts.push(attemptInfo);
 
+        const totalDuration = Date.now() - startTime;
+
+        // Log successful execution
+        this.logger.info('Retry execution succeeded', {
+          policyName: this.config.name,
+          attempt,
+          duration: attemptInfo.duration,
+          totalDuration,
+          success: true
+        });
+
+        // Record metrics
+        this.metrics.recordRetryAttempt(
+          this.config.name,
+          attempt,
+          attemptInfo.duration,
+          true,
+          true // final attempt
+        );
+
         // Update statistics
-        this.updateStats(attempts, Date.now() - startTime, true);
+        this.updateStats(attempts, totalDuration, true);
 
         return {
           success: true,
           data: result,
           attempts,
-          totalDuration: Date.now() - startTime,
+          totalDuration,
           totalAttempts: attempt
         };
 
@@ -402,7 +462,10 @@ export class RetryPolicy {
         };
 
         // Check if we should retry
-        if (attempt < this.config.maxAttempts && this.config.retryCondition(error, attempt)) {
+        const willRetry = attempt < this.config.maxAttempts && this.config.retryCondition(error, attempt);
+        const finalAttempt = !willRetry;
+
+        if (willRetry) {
           // Calculate delay for next attempt
           const delay = this.config.delayFunction(
             attempt,
@@ -415,11 +478,61 @@ export class RetryPolicy {
           attemptInfo.delay = delay;
           attempts.push(attemptInfo);
 
+          // Log retry attempt
+          this.logger.warn('Retry attempt failed, will retry', {
+            policyName: this.config.name,
+            attempt,
+            duration: attemptInfo.duration,
+            errorType: error.constructor.name,
+            errorMessage: error.message,
+            delay,
+            nextAttempt: attempt + 1,
+            maxAttempts: this.config.maxAttempts
+          });
+
+          // Record metrics
+          this.metrics.recordRetryAttempt(
+            this.config.name,
+            attempt,
+            attemptInfo.duration,
+            false,
+            false // not final attempt
+          );
+
           // Wait before next attempt
           await sleep(delay);
         } else {
           // No more retries
           attempts.push(attemptInfo);
+
+          // Log final failure or no-retry decision
+          if (attempt >= this.config.maxAttempts) {
+            this.logger.error('Retry attempts exhausted', {
+              policyName: this.config.name,
+              attempt,
+              duration: attemptInfo.duration,
+              errorType: error.constructor.name,
+              errorMessage: error.message,
+              totalAttempts: this.config.maxAttempts
+            });
+          } else {
+            this.logger.info('Retry not attempted due to retry condition', {
+              policyName: this.config.name,
+              attempt,
+              errorType: error.constructor.name,
+              errorMessage: error.message
+            });
+          }
+
+          // Record metrics for final failed attempt
+          this.metrics.recordRetryAttempt(
+            this.config.name,
+            attempt,
+            attemptInfo.duration,
+            false,
+            true // final attempt
+          );
+
           break;
         }
       }
@@ -431,6 +544,16 @@ export class RetryPolicy {
 
     const lastError = attempts[attempts.length - 1]?.error || new Error('Unknown error');
     const retryExhaustedError = new RetryExhaustedError(attempts, totalDuration, lastError);
+
+    // Log final failure
+    this.logger.error('Retry execution failed after all attempts', {
+      policyName: this.config.name,
+      totalAttempts: attempts.length,
+      totalDuration,
+      lastErrorType: lastError.constructor.name,
+      lastErrorMessage: lastError.message,
+      success: false
+    });
 
     return {
       success: false,

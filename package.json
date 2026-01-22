@@ -45,6 +45,7 @@
     "@google-cloud/bigquery": "^8.1.1",
     "drizzle-orm": "^0.45.1",
     "pg": "^8.17.2",
+    "pino": "^10.2.1",
     "postgres": "^3.4.8",
     "snowflake-sdk": "^2.2.0",
     "zod": "^4.3.5"

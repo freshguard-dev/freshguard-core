@@ -3,11 +3,15 @@
  *
  * Implements the Circuit Breaker pattern to provide resilience against
  * cascading failures and fast-fail behavior for unhealthy services.
+ * Includes integrated observability with structured logging and metrics.
  *
  * States: CLOSED → OPEN → HALF_OPEN → CLOSED/OPEN
  *
  * @license MIT
  */
+
+import { StructuredLogger, createComponentLogger, LogContext } from '../observability/logger.js';
+import { MetricsCollector, createComponentMetrics } from '../observability/metrics.js';
 
 // ==============================================
 // Types and Interfaces
@@ -38,6 +42,12 @@ export interface CircuitBreakerConfig {
   errorFilter?: (error: Error) => boolean;
   /** Circuit name for logging/monitoring */
   name?: string;
+  /** Logger instance for observability */
+  logger?: StructuredLogger;
+  /** Metrics collector for observability */
+  metrics?: MetricsCollector;
+  /** Enable detailed logging */
+  enableDetailedLogging?: boolean;
 }
 
 /**
@@ -112,7 +122,7 @@ export class CircuitOpenError extends CircuitBreakerError {
 // ==============================================
 
 /**
- * Circuit Breaker with sliding window failure tracking
+ * Circuit Breaker with sliding window failure tracking and integrated observability
  */
 export class CircuitBreaker {
   private state: CircuitBreakerState = CircuitBreakerState.CLOSED;
@@ -125,20 +135,30 @@ export class CircuitBreaker {
   private lastFailureTime: Date | null = null;
   private lastSuccessTime: Date | null = null;
   private nextAttemptTime: Date | null = null;
-  private readonly config: Required<CircuitBreakerConfig>;
+  private readonly config: Required<Omit<CircuitBreakerConfig, 'logger' | 'metrics'>>;
+  private readonly logger: StructuredLogger;
+  private readonly metrics: MetricsCollector;
+  private readonly enableDetailedLogging: boolean;
   private readonly startTime: Date;
+  private lastStateChangeTime: Date;
 
   constructor(config: CircuitBreakerConfig) {
     this.config = {
-      failureThreshold: 5,
-      successThreshold: 3,
-      recoveryTimeout: 60000, // 1 minute
-      windowSize: 100,
-      errorFilter: () => true, // Count all errors by default
-      name: 'Circuit',
-      ...config
+      failureThreshold: config.failureThreshold || 5,
+      successThreshold: config.successThreshold || 3,
+      recoveryTimeout: config.recoveryTimeout || 60000, // 1 minute
+      windowSize: config.windowSize || 100,
+      errorFilter: config.errorFilter || (() => true), // Count all errors by default
+      name: config.name || 'Circuit'
     };
+
     this.startTime = new Date();
+    this.lastStateChangeTime = new Date();
+
+    // Initialize observability
+    this.logger = config.logger || createComponentLogger('circuit-breaker');
+    this.metrics = config.metrics || createComponentMetrics('circuit_breaker');
+    this.enableDetailedLogging = config.enableDetailedLogging !== false;
 
     // Validate configuration
     if (this.config.failureThreshold <= 0) {
@@ -150,6 +170,18 @@ export class CircuitBreaker {
     if (this.config.recoveryTimeout < 0) {
       throw new Error('Recovery timeout cannot be negative');
     }
+
+    // Log circuit breaker initialization
+    this.logger.info('Circuit breaker initialized', {
+      circuitName: this.config.name,
+      failureThreshold: this.config.failureThreshold,
+      successThreshold: this.config.successThreshold,
+      recoveryTimeout: this.config.recoveryTimeout,
+      windowSize: this.config.windowSize
+    });
+
+    // Initialize metrics
+    this.recordMetrics();
   }
 
   /**
@@ -163,10 +195,20 @@ export class CircuitBreaker {
       if (this.state === CircuitBreakerState.OPEN) {
         if (Date.now() < (this.nextAttemptTime?.getTime() || 0)) {
           this.rejectedCalls++;
+
+          // Log rejected call
+          if (this.enableDetailedLogging) {
+            this.logger.debug('Circuit breaker rejected call', {
+              circuitName: this.config.name,
+              rejectedCalls: this.rejectedCalls,
+              nextAttemptTime: this.nextAttemptTime!.toISOString()
+            });
+          }
+
           throw new CircuitOpenError(this.config.name, this.nextAttemptTime!);
         } else {
           // Time to attempt recovery
-          this.state = CircuitBreakerState.HALF_OPEN;
+          this.changeState(CircuitBreakerState.HALF_OPEN);
           this.successCount = 0;
         }
       }
@@ -225,6 +267,8 @@ export class CircuitBreaker {
     this.successfulCalls++;
     this.lastSuccessTime = new Date();
 
+    const previousState = this.state;
+
     switch (this.state) {
       case CircuitBreakerState.CLOSED:
         // Already closed, nothing to do
@@ -234,7 +278,7 @@ export class CircuitBreaker {
       case CircuitBreakerState.HALF_OPEN:
         this.successCount++;
         if (this.successCount >= this.config.successThreshold) {
-          this.state = CircuitBreakerState.CLOSED;
+          this.changeState(CircuitBreakerState.CLOSED);
           this.successCount = 0;
           this.nextAttemptTime = null;
           this.resetFailureCount();
@@ -243,10 +287,24 @@ export class CircuitBreaker {
 
       case CircuitBreakerState.OPEN:
         // This shouldn't happen, but handle gracefully
-        this.state = CircuitBreakerState.HALF_OPEN;
+        this.changeState(CircuitBreakerState.HALF_OPEN);
         this.successCount = 1;
         break;
     }
+
+    // Log successful execution
+    if (this.enableDetailedLogging) {
+      this.logger.debug('Circuit breaker execution succeeded', {
+        circuitName: this.config.name,
+        executionTime,
+        state: this.state,
+        successCount: this.successCount,
+        totalCalls: this.totalCalls
+      });
+    }
+
+    // Record metrics
+    this.recordMetrics();
   }
 
   /**
@@ -259,6 +317,16 @@ export class CircuitBreaker {
 
     // Check if this error should be counted
     if (!this.config.errorFilter(error)) {
+      // Log filtered error
+      if (this.enableDetailedLogging) {
+        this.logger.debug('Circuit breaker execution failed (filtered)', {
+          circuitName: this.config.name,
+          errorType: error.constructor.name,
+          errorMessage: error.message,
+          executionTime,
+          state: this.state
+        });
+      }
       return;
     }
 
@@ -269,6 +337,8 @@ export class CircuitBreaker {
     // Clean old failures outside window
     const cutoff = new Date(now.getTime() - (5 * 60 * 1000)); // 5 minute window
     this.failureWindow = this.failureWindow.filter(time => time > cutoff);
+
+    const previousState = this.state;
 
     switch (this.state) {
       case CircuitBreakerState.CLOSED:
@@ -287,15 +357,86 @@ export class CircuitBreaker {
         this.nextAttemptTime = new Date(Date.now() + this.config.recoveryTimeout);
         break;
     }
+
+    // Log failed execution
+    if (this.enableDetailedLogging) {
+      this.logger.warn('Circuit breaker execution failed', {
+        circuitName: this.config.name,
+        errorType: error.constructor.name,
+        errorMessage: error.message,
+        executionTime,
+        state: this.state,
+        failureCount: this.failureWindow.length,
+        failureThreshold: this.config.failureThreshold,
+        stateChanged: previousState !== this.state
+      });
+    } else {
+      // Always log state changes, even with minimal logging
+      if (previousState !== this.state) {
+        this.logger.warn('Circuit breaker state changed due to failure', {
+          circuitName: this.config.name,
+          previousState,
+          newState: this.state,
+          failureCount: this.failureWindow.length
+        });
+      }
+    }
+
+    // Record metrics
+    this.recordMetrics();
   }
 
   /**
    * Trip the circuit to OPEN state
    */
   private tripCircuit(): void {
-    this.state = CircuitBreakerState.OPEN;
+    this.changeState(CircuitBreakerState.OPEN);
     this.successCount = 0;
     this.nextAttemptTime = new Date(Date.now() + this.config.recoveryTimeout);
+
+    // Log circuit tripping (always log this important event)
+    this.logger.error('Circuit breaker tripped to OPEN state', {
+      circuitName: this.config.name,
+      failureCount: this.failureWindow.length,
+      recoveryTimeout: this.config.recoveryTimeout,
+      nextAttemptTime: this.nextAttemptTime.toISOString()
+    });
+  }
+
+  /**
+   * Change circuit state with logging and metrics
+   */
+  private changeState(newState: CircuitBreakerState): void {
+    const previousState = this.state;
+    if (previousState === newState) {
+      return;
+    }
+
+    this.state = newState;
+    this.lastStateChangeTime = new Date();
+
+    // Log state change (always log state changes)
+    this.logger.info('Circuit breaker state changed', {
+      circuitName: this.config.name,
+      previousState,
+      newState,
+      timeInPreviousState: Date.now() - this.lastStateChangeTime.getTime()
+    });
+
+    // Record metrics
+    this.recordMetrics();
+  }
+
+  /**
+   * Record current metrics
+   */
+  private recordMetrics(): void {
+    this.metrics.recordCircuitBreakerState(
+      this.config.name,
+      this.state,
+      this.failedCalls,
+      this.successfulCalls
+    );
   }
 
   /**

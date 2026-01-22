@@ -5,7 +5,8 @@
  * @module @thias-se/freshguard-core/connectors/duckdb
  */
 
-import { DuckDBInstance, DuckDBConnection } from '@duckdb/node-api';
+import type { DuckDBConnection } from '@duckdb/node-api';
+import { DuckDBInstance } from '@duckdb/node-api';
 import { BaseConnector } from './base-connector.js';
 import type { ConnectorConfig, TableSchema, SecurityConfig } from '../types/connector.js';
 import type { SourceCredentials } from '../types.js';
@@ -33,8 +34,8 @@ import { resolve } from 'path';
 export class DuckDBConnector extends BaseConnector {
   private instance: DuckDBInstance | null = null;
   private connection: DuckDBConnection | null = null;
-  private databasePath: string = '';
-  private connected: boolean = false;
+  private databasePath = '';
+  private connected = false;
 
   constructor(config: ConnectorConfig, securityConfig?: Partial<SecurityConfig>) {
     // Validate DuckDB-specific configuration
@@ -127,6 +128,14 @@ export class DuckDBConnector extends BaseConnector {
    * Execute a validated SQL query with security measures
    */
   protected async executeQuery(sql: string): Promise<any[]> {
+    return this.executeParameterizedQuery(sql, []);
+  }
+
+  /**
+   * Execute a parameterized SQL query (DuckDB with manual parameter substitution)
+   * Note: DuckDB node API has limited prepared statement support, so we use safe parameter substitution
+   */
+  protected async executeParameterizedQuery(sql: string, parameters: any[] = []): Promise<any[]> {
     await this.connect();
 
     if (!this.connection) {
@@ -134,8 +143,31 @@ export class DuckDBConnector extends BaseConnector {
     }
 
     try {
+      // DuckDB doesn't have robust parameterized query support in node API
+      // Use safe parameter substitution for numeric values, keep string validation strict
+      let finalSql = sql;
+
+      if (parameters.length > 0) {
+        // Replace $1, $2, etc. with properly escaped parameters
+        for (let i = 0; i < parameters.length; i++) {
+          const param = parameters[i];
+          const placeholder = `$${i + 1}`;
+
+          if (typeof param === 'number') {
+            // Safe for numeric parameters
+            finalSql = finalSql.replace(placeholder, param.toString());
+          } else if (typeof param === 'string') {
+            // For string parameters, use single quotes and escape internal quotes
+            const escapedParam = param.replace(/'/g, "''");
+            finalSql = finalSql.replace(placeholder, `'${escapedParam}'`);
+          } else {
+            throw new Error(`Unsupported parameter type: ${typeof param}`);
+          }
+        }
+      }
+
       const reader = await this.executeWithTimeout(
-        () => this.connection!.runAndReadAll(sql),
+        () => this.connection!.runAndReadAll(finalSql),
         this.queryTimeout
       );
 
@@ -171,9 +203,8 @@ export class DuckDBConnector extends BaseConnector {
         return false;
       }
 
-      // Test with a simple, safe query
+      // Test with a simple, safe query (skip validation for connection test)
       const sql = 'SELECT 1 as test';
-      this.validateQuery(sql);
 
       await this.executeWithTimeout(
         () => this.connection!.run(sql),
@@ -196,13 +227,13 @@ export class DuckDBConnector extends BaseConnector {
       FROM information_schema.tables
       WHERE table_schema NOT IN ('information_schema', 'pg_catalog')
       ORDER BY table_name
-      LIMIT ${this.maxRows}
+      LIMIT $1
     `;
 
     this.validateQuery(sql);
 
     try {
-      const result = await this.executeQuery(sql);
+      const result = await this.executeParameterizedQuery(sql, [this.maxRows]);
       return result.map((row: any) => row.table_name).filter(Boolean);
     } catch (error) {
       throw new QueryError(
@@ -218,7 +249,8 @@ export class DuckDBConnector extends BaseConnector {
    * Get table schema information securely
    */
   async getTableSchema(table: string): Promise<TableSchema> {
-    const escapedTable = this.escapeIdentifier(table);
+    // Validate table name (identifiers cannot be parameterized)
+    this.escapeIdentifier(table);
 
     const sql = `
       SELECT
@@ -226,16 +258,16 @@ export class DuckDBConnector extends BaseConnector {
         data_type,
         is_nullable
       FROM information_schema.columns
-      WHERE table_name = '${escapedTable}'
+      WHERE table_name = $1
         AND table_schema NOT IN ('information_schema', 'pg_catalog')
       ORDER BY ordinal_position
-      LIMIT ${this.maxRows}
+      LIMIT $2
     `;
 
     this.validateQuery(sql);
 
     try {
-      const result = await this.executeQuery(sql);
+      const result = await this.executeParameterizedQuery(sql, [table, this.maxRows]);
 
       if (result.length === 0) {
         throw QueryError.tableNotFound(table);
@@ -420,7 +452,7 @@ export class DuckDBConnector extends BaseConnector {
    */
   async getTableMetadata(
     tableName: string,
-    timestampColumn: string = 'updated_at'
+    timestampColumn = 'updated_at'
   ): Promise<{ rowCount: number; lastUpdate?: Date }> {
     console.warn('Warning: getTableMetadata is deprecated. Use getRowCount() and getMaxTimestamp() instead.');
 

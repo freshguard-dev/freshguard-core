@@ -29,7 +29,7 @@ import { validateConnectorConfig } from '../validators/index.js';
  */
 export class PostgresConnector extends BaseConnector {
   private client: ReturnType<typeof postgres> | null = null;
-  private connected: boolean = false;
+  private connected = false;
 
   constructor(config: ConnectorConfig, securityConfig?: Partial<SecurityConfig>) {
     // Validate configuration before proceeding
@@ -85,6 +85,13 @@ export class PostgresConnector extends BaseConnector {
    * Execute a validated SQL query with security measures
    */
   protected async executeQuery(sql: string): Promise<any[]> {
+    return this.executeParameterizedQuery(sql, []);
+  }
+
+  /**
+   * Execute a parameterized SQL query using prepared statements
+   */
+  protected async executeParameterizedQuery(sql: string, parameters: any[] = []): Promise<any[]> {
     await this.connect();
 
     if (!this.client) {
@@ -93,7 +100,9 @@ export class PostgresConnector extends BaseConnector {
 
     try {
       const result = await this.executeWithTimeout(
-        () => this.client!.unsafe(sql),
+        async () => parameters.length > 0
+          ? await this.client!.unsafe(sql, parameters)  // Use parameterized query with unsafe
+          : await this.client!.unsafe(sql),              // Fallback to unsafe for non-parameterized
         this.queryTimeout
       );
 
@@ -127,9 +136,8 @@ export class PostgresConnector extends BaseConnector {
         return false;
       }
 
-      // Test with a simple, safe query
+      // Test with a simple, safe query (skip validation for connection test)
       const sql = 'SELECT 1 as test';
-      this.validateQuery(sql);
 
       await this.executeWithTimeout(
         () => this.client!.unsafe(sql),
@@ -150,15 +158,15 @@ export class PostgresConnector extends BaseConnector {
     const sql = `
       SELECT table_name
       FROM information_schema.tables
-      WHERE table_schema = 'public'
+      WHERE table_schema = $1
       ORDER BY table_name
-      LIMIT ${this.maxRows}
+      LIMIT $2
     `;
 
     this.validateQuery(sql);
 
     try {
-      const result = await this.executeQuery(sql);
+      const result = await this.executeParameterizedQuery(sql, ['public', this.maxRows]);
       return result.map((row: any) => row.table_name).filter(Boolean);
     } catch (error) {
       throw new QueryError(
@@ -174,7 +182,8 @@ export class PostgresConnector extends BaseConnector {
    * Get table schema information securely
    */
   async getTableSchema(table: string): Promise<TableSchema> {
-    const escapedTable = this.escapeIdentifier(table);
+    // Validate table name (identifiers cannot be parameterized)
+    this.escapeIdentifier(table);
 
     const sql = `
       SELECT
@@ -182,16 +191,16 @@ export class PostgresConnector extends BaseConnector {
         data_type,
         is_nullable
       FROM information_schema.columns
-      WHERE table_schema = 'public'
-        AND table_name = '${escapedTable}'
+      WHERE table_schema = $1
+        AND table_name = $2
       ORDER BY ordinal_position
-      LIMIT ${this.maxRows}
+      LIMIT $3
     `;
 
     this.validateQuery(sql);
 
     try {
-      const result = await this.executeQuery(sql);
+      const result = await this.executeParameterizedQuery(sql, ['public', table, this.maxRows]);
 
       if (result.length === 0) {
         throw QueryError.tableNotFound(table);
@@ -223,8 +232,6 @@ export class PostgresConnector extends BaseConnector {
    * Get last modified timestamp using PostgreSQL-specific methods
    */
   async getLastModified(table: string): Promise<Date | null> {
-    const escapedTable = this.escapeIdentifier(table);
-
     // Try common timestamp columns
     const timestampColumns = ['updated_at', 'modified_at', 'last_modified', 'timestamp'];
 
@@ -249,11 +256,11 @@ export class PostgresConnector extends BaseConnector {
         ) as last_modified
         FROM pg_class c
         JOIN pg_namespace n ON n.oid = c.relnamespace
-        WHERE n.nspname = 'public' AND c.relname = '${escapedTable}'
+        WHERE n.nspname = $1 AND c.relname = $2
       `;
 
       this.validateQuery(sql);
-      const result = await this.executeQuery(sql);
+      const result = await this.executeParameterizedQuery(sql, ['public', table]);
 
       if (result.length > 0 && result[0].last_modified) {
         return new Date(result[0].last_modified);
@@ -382,7 +389,7 @@ export class PostgresConnector extends BaseConnector {
    */
   async getTableMetadata(
     tableName: string,
-    timestampColumn: string = 'updated_at'
+    timestampColumn = 'updated_at'
   ): Promise<{ rowCount: number; lastUpdate?: Date }> {
     console.warn('Warning: getTableMetadata is deprecated. Use getRowCount() and getMaxTimestamp() instead.');
 

@@ -31,11 +31,11 @@ import { validateDatabaseIdentifier } from '../validators/index.js';
  */
 export class SnowflakeConnector extends BaseConnector {
   private connection: snowflake.Connection | null = null;
-  private account: string = '';
-  private warehouse: string = '';
-  private database: string = '';
-  private schema: string = 'PUBLIC';
-  private connected: boolean = false;
+  private account = '';
+  private warehouse = '';
+  private database = '';
+  private schema = 'PUBLIC';
+  private connected = false;
 
   constructor(config: ConnectorConfig, securityConfig?: Partial<SecurityConfig>) {
     // Validate Snowflake-specific configuration
@@ -73,8 +73,8 @@ export class SnowflakeConnector extends BaseConnector {
    * Extract Snowflake account from host
    */
   private extractAccount(host: string): string {
-    const hostMatch = host.match(/^([^.]+)\.snowflakecomputing\.com$/);
-    if (hostMatch && hostMatch[1]) {
+    const hostMatch = /^([^.]+)\.snowflakecomputing\.com$/.exec(host);
+    if (hostMatch?.[1]) {
       return hostMatch[1];
     }
     throw new ConfigurationError('Could not extract Snowflake account from host');
@@ -133,9 +133,9 @@ export class SnowflakeConnector extends BaseConnector {
   }
 
   /**
-   * Execute a validated SQL query with security measures
+   * Execute a parameterized SQL query using Snowflake bind variables
    */
-  protected async executeQuery(sql: string): Promise<any[]> {
+  protected async executeParameterizedQuery(sql: string, parameters: any[] = []): Promise<any[]> {
     await this.connect();
 
     if (!this.connection) {
@@ -143,18 +143,34 @@ export class SnowflakeConnector extends BaseConnector {
     }
 
     try {
+      // Convert positional parameters ($1, $2, etc.) to Snowflake bind variables (?, ?, etc.)
+      let finalSql = sql;
+      if (parameters.length > 0) {
+        for (let i = 0; i < parameters.length; i++) {
+          const placeholder = `$${i + 1}`;
+          finalSql = finalSql.replace(new RegExp(`\\${placeholder}\\b`, 'g'), '?');
+        }
+      }
+
       const result = await this.executeWithTimeout(
         () => new Promise<any[]>((resolve, reject) => {
-          this.connection!.execute({
-            sqlText: sql,
-            complete: (err, _stmt, rows) => {
+          const executeOptions: any = {
+            sqlText: finalSql,
+            complete: (err: any, _stmt: any, rows: any[]) => {
               if (err) {
                 reject(new Error(`Query execution failed: ${err.message}`));
               } else {
                 resolve(rows || []);
               }
             }
-          });
+          };
+
+          // Add bind parameters if any exist
+          if (parameters.length > 0) {
+            executeOptions.binds = parameters;
+          }
+
+          this.connection!.execute(executeOptions);
         }),
         this.queryTimeout
       );
@@ -179,6 +195,13 @@ export class SnowflakeConnector extends BaseConnector {
   }
 
   /**
+   * Execute a validated SQL query with security measures
+   */
+  protected async executeQuery(sql: string): Promise<any[]> {
+    return this.executeParameterizedQuery(sql, []);
+  }
+
+  /**
    * Test database connection with security validation
    */
   async testConnection(): Promise<boolean> {
@@ -189,9 +212,8 @@ export class SnowflakeConnector extends BaseConnector {
         return false;
       }
 
-      // Test with a simple, safe query
+      // Test with a simple, safe query (skip validation for connection test)
       const sql = 'SELECT 1 as test';
-      this.validateQuery(sql);
 
       await this.executeQuery(sql);
 
@@ -209,16 +231,16 @@ export class SnowflakeConnector extends BaseConnector {
     const sql = `
       SELECT table_name
       FROM INFORMATION_SCHEMA.TABLES
-      WHERE table_schema = '${this.schema.toUpperCase()}'
+      WHERE table_schema = $1
         AND table_type = 'BASE TABLE'
       ORDER BY table_name
-      LIMIT ${this.maxRows}
+      LIMIT $2
     `;
 
     this.validateQuery(sql);
 
     try {
-      const result = await this.executeQuery(sql);
+      const result = await this.executeParameterizedQuery(sql, [this.schema.toUpperCase(), this.maxRows]);
       return result.map((row: any) => row.TABLE_NAME).filter(Boolean);
     } catch (error) {
       throw new QueryError(
@@ -237,22 +259,26 @@ export class SnowflakeConnector extends BaseConnector {
     const parsedTable = this.parseTableName(table);
     const tableNameUpper = parsedTable.split('.').pop()?.toUpperCase();
 
+    if (!tableNameUpper) {
+      throw new QueryError('Invalid table name format', 'invalid_table_name');
+    }
+
     const sql = `
       SELECT
         column_name,
         data_type,
         is_nullable
       FROM INFORMATION_SCHEMA.COLUMNS
-      WHERE table_name = '${tableNameUpper}'
-        AND table_schema = '${this.schema.toUpperCase()}'
+      WHERE table_name = $1
+        AND table_schema = $2
       ORDER BY ordinal_position
-      LIMIT ${this.maxRows}
+      LIMIT $3
     `;
 
     this.validateQuery(sql);
 
     try {
-      const result = await this.executeQuery(sql);
+      const result = await this.executeParameterizedQuery(sql, [tableNameUpper, this.schema.toUpperCase(), this.maxRows]);
 
       if (result.length === 0) {
         throw QueryError.tableNotFound(table);
@@ -387,7 +413,7 @@ export class SnowflakeConnector extends BaseConnector {
       const [database, _schema, _table] = parts;
 
       // Validate database matches (database is validated in constructor, so it's safe to use)
-      if (database && database.toUpperCase() !== this.database!.toUpperCase()) {
+      if (database && database.toUpperCase() !== this.database.toUpperCase()) {
         throw new SecurityError('Table database does not match configured database');
       }
 
@@ -478,7 +504,7 @@ export class SnowflakeConnector extends BaseConnector {
    */
   async getTableMetadata(
     tableName: string,
-    timestampColumn: string = 'UPDATED_AT'
+    timestampColumn = 'UPDATED_AT'
   ): Promise<{ rowCount: number; lastUpdate?: Date }> {
     console.warn('Warning: getTableMetadata is deprecated. Use getRowCount() and getMaxTimestamp() instead.');
 

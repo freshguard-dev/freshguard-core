@@ -31,9 +31,9 @@ import { validateDatabaseIdentifier } from '../validators/index.js';
  */
 export class BigQueryConnector extends BaseConnector {
   private client: BigQuery | null = null;
-  private projectId: string = '';
-  private location: string = 'US';
-  private connected: boolean = false;
+  private projectId = '';
+  private location = 'US';
+  private connected = false;
 
   constructor(config: ConnectorConfig, securityConfig?: Partial<SecurityConfig>) {
     // Validate BigQuery-specific configuration
@@ -144,9 +144,9 @@ export class BigQueryConnector extends BaseConnector {
   }
 
   /**
-   * Execute a validated SQL query with security measures
+   * Execute a parameterized SQL query using BigQuery's named parameters
    */
-  protected async executeQuery(sql: string): Promise<any[]> {
+  protected async executeParameterizedQuery(sql: string, parameters: any[] = []): Promise<any[]> {
     await this.connect();
 
     if (!this.client) {
@@ -154,14 +154,36 @@ export class BigQueryConnector extends BaseConnector {
     }
 
     try {
+      // Convert positional parameters ($1, $2, etc.) to BigQuery named parameters (@param1, @param2, etc.)
+      let finalSql = sql;
+      const namedParams: Record<string, any> = {};
+
+      if (parameters.length > 0) {
+        for (let i = 0; i < parameters.length; i++) {
+          const placeholder = `$${i + 1}`;
+          const namedParam = `param${i + 1}`;
+
+          // Replace $1, $2, etc. with @param1, @param2, etc.
+          finalSql = finalSql.replace(new RegExp(`\\${placeholder}\\b`, 'g'), `@${namedParam}`);
+          namedParams[namedParam] = parameters[i];
+        }
+      }
+
+      const queryOptions: any = {
+        query: finalSql,
+        location: this.location,
+        maxResults: this.maxRows,
+        jobTimeoutMs: this.queryTimeout,
+        useLegacySql: false, // Force standard SQL for security
+      };
+
+      // Add named parameters if any exist
+      if (Object.keys(namedParams).length > 0) {
+        queryOptions.params = namedParams;
+      }
+
       const [rows] = await this.executeWithTimeout(
-        () => this.client!.query({
-          query: sql,
-          location: this.location,
-          maxResults: this.maxRows,
-          jobTimeoutMs: this.queryTimeout,
-          useLegacySql: false, // Force standard SQL for security
-        }),
+        () => this.client!.query(queryOptions),
         this.queryTimeout
       );
 
@@ -185,6 +207,13 @@ export class BigQueryConnector extends BaseConnector {
   }
 
   /**
+   * Execute a validated SQL query with security measures
+   */
+  protected async executeQuery(sql: string): Promise<any[]> {
+    return this.executeParameterizedQuery(sql, []);
+  }
+
+  /**
    * Test database connection with security validation
    */
   async testConnection(): Promise<boolean> {
@@ -195,9 +224,8 @@ export class BigQueryConnector extends BaseConnector {
         return false;
       }
 
-      // Test with a simple, safe query
+      // Test with a simple, safe query (skip validation for connection test)
       const sql = 'SELECT 1 as test';
-      this.validateQuery(sql);
 
       await this.executeWithTimeout(
         () => this.client!.query({ query: sql, location: this.location }),
@@ -218,16 +246,16 @@ export class BigQueryConnector extends BaseConnector {
     const sql = `
       SELECT
         CONCAT(table_schema, '.', table_name) as table_name
-      FROM \`${this.projectId}.INFORMATION_SCHEMA.TABLES\`
+      FROM \`$1.INFORMATION_SCHEMA.TABLES\`
       WHERE table_type = 'BASE_TABLE'
       ORDER BY table_schema, table_name
-      LIMIT ${this.maxRows}
+      LIMIT $2
     `;
 
     this.validateQuery(sql);
 
     try {
-      const result = await this.executeQuery(sql);
+      const result = await this.executeParameterizedQuery(sql, [this.projectId, this.maxRows]);
       return result.map((row: any) => row.table_name).filter(Boolean);
     } catch (error) {
       throw new QueryError(
@@ -244,22 +272,30 @@ export class BigQueryConnector extends BaseConnector {
    */
   async getTableSchema(table: string): Promise<TableSchema> {
     const parsedTable = this.parseTableName(table);
+    const tableParts = parsedTable.split('.');
+
+    // Ensure we have exactly 3 parts: project.dataset.table
+    if (tableParts.length !== 3) {
+      throw new QueryError('Invalid table name format. Expected: project.dataset.table', 'invalid_table_name');
+    }
+
+    const [projectId, datasetId, tableName] = tableParts;
 
     const sql = `
       SELECT
         column_name,
         data_type,
         is_nullable
-      FROM \`${parsedTable.split('.')[0]}.${parsedTable.split('.')[1]}.INFORMATION_SCHEMA.COLUMNS\`
-      WHERE table_name = '${parsedTable.split('.')[2]}'
+      FROM \`$1.$2.INFORMATION_SCHEMA.COLUMNS\`
+      WHERE table_name = $3
       ORDER BY ordinal_position
-      LIMIT ${this.maxRows}
+      LIMIT $4
     `;
 
     this.validateQuery(sql);
 
     try {
-      const result = await this.executeQuery(sql);
+      const result = await this.executeParameterizedQuery(sql, [projectId, datasetId, tableName, this.maxRows]);
 
       if (result.length === 0) {
         throw QueryError.tableNotFound(table);
@@ -477,7 +513,7 @@ export class BigQueryConnector extends BaseConnector {
    */
   async getTableMetadata(
     tableName: string,
-    timestampColumn: string = 'updated_at'
+    timestampColumn = 'updated_at'
   ): Promise<{ rowCount: number; lastUpdate?: Date }> {
     console.warn('Warning: getTableMetadata is deprecated. Use getRowCount() and getMaxTimestamp() instead.');
 

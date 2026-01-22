@@ -1,8 +1,9 @@
 /**
- * Base connector class with built-in security validation
+ * Base connector class with built-in security validation and observability
  *
  * All database connectors must extend this class to ensure consistent
- * security measures including query validation, timeouts, and error sanitization.
+ * security measures including query validation, timeouts, error sanitization,
+ * structured logging, and metrics collection.
  *
  * @license MIT
  */
@@ -20,8 +21,17 @@ import {
   TimeoutError
 } from '../errors/index.js';
 
+import type { StructuredLogger} from '../observability/logger.js';
+import { createDatabaseLogger, logTimedOperation, type LogContext } from '../observability/logger.js';
+import type { MetricsCollector} from '../observability/metrics.js';
+import { createComponentMetrics, timeOperation } from '../observability/metrics.js';
+import type { QueryComplexityAnalyzer} from '../security/query-analyzer.js';
+import { createQueryAnalyzer, type QueryComplexity, type TableMetadata } from '../security/query-analyzer.js';
+import type { SchemaCache} from '../security/schema-cache.js';
+import { createSchemaCache, generateStructureHash, type CachedTableSchema } from '../security/schema-cache.js';
+
 /**
- * Abstract base connector with security built-in
+ * Abstract base connector with security and observability built-in
  *
  * Provides:
  * - SQL injection prevention
@@ -29,12 +39,20 @@ import {
  * - Connection validation
  * - Error sanitization
  * - Read-only query patterns
+ * - Structured logging
+ * - Metrics collection
  */
 export abstract class BaseConnector implements Connector {
   protected readonly connectionTimeout: number;
   protected readonly queryTimeout: number;
   protected readonly maxRows: number;
   protected readonly requireSSL: boolean;
+  protected readonly logger: StructuredLogger;
+  protected readonly metrics: MetricsCollector;
+  protected readonly queryAnalyzer: QueryComplexityAnalyzer;
+  protected readonly schemaCache: SchemaCache;
+  protected readonly enableDetailedLogging: boolean;
+  protected readonly enableQueryAnalysis: boolean;
   private readonly allowedPatterns: RegExp[];
   private readonly blockedKeywords: string[];
 
@@ -52,8 +70,47 @@ export abstract class BaseConnector implements Connector {
     this.allowedPatterns = security.allowedQueryPatterns;
     this.blockedKeywords = security.blockedKeywords;
 
+    // Initialize observability
+    const databaseType = this.constructor.name.replace('Connector', '').toLowerCase();
+    this.logger = createDatabaseLogger(databaseType, {
+      baseContext: {
+        host: config.host,
+        database: config.database,
+        connector: databaseType
+      }
+    });
+    this.metrics = createComponentMetrics(`database_${databaseType}`);
+    this.enableDetailedLogging = security.enableDetailedLogging !== false;
+
+    // Initialize advanced security features
+    this.enableQueryAnalysis = security.enableQueryAnalysis !== false;
+    this.queryAnalyzer = createQueryAnalyzer({
+      maxRiskScore: security.maxQueryRiskScore || 70,
+      maxComplexityScore: security.maxQueryComplexityScore || 80,
+      enableSecurityAnalysis: true,
+      enablePerformanceAnalysis: true
+    });
+    this.schemaCache = createSchemaCache({
+      logger: this.logger.child({ component: 'schema-cache' }),
+      metrics: this.metrics
+    });
+
     // Validate configuration
     this.validateConfig(config);
+
+    // Log connector initialization
+    this.logger.info('Database connector initialized', {
+      database: config.database,
+      host: config.host,
+      port: config.port,
+      ssl: config.ssl,
+      connectionTimeout: this.connectionTimeout,
+      queryTimeout: this.queryTimeout,
+      maxRows: this.maxRows,
+      enableQueryAnalysis: this.enableQueryAnalysis,
+      maxQueryRiskScore: security.maxQueryRiskScore || 70,
+      maxQueryComplexityScore: security.maxQueryComplexityScore || 80
+    });
   }
 
   /**
@@ -86,16 +143,33 @@ export abstract class BaseConnector implements Connector {
   }
 
   /**
-   * Validate SQL query against security rules
+   * Validate SQL query against security rules with enhanced analysis
    *
-   * Only allows specific read-only patterns and blocks dangerous keywords
+   * Combines traditional pattern matching with advanced query complexity analysis
    */
-  protected validateQuery(sql: string): void {
+  protected async validateQuery(sql: string, tableNames: string[] = []): Promise<void> {
     const normalizedSql = sql.trim().toUpperCase();
 
+    // Traditional validation (backward compatibility)
+    this.validateQueryTraditional(sql, normalizedSql);
+
+    // Enhanced query analysis (if enabled)
+    if (this.enableQueryAnalysis) {
+      await this.validateQueryWithAnalyzer(sql, tableNames);
+    }
+  }
+
+  /**
+   * Traditional query validation for backward compatibility
+   */
+  private validateQueryTraditional(sql: string, normalizedSql: string): void {
     // Check for blocked keywords
     for (const keyword of this.blockedKeywords) {
       if (normalizedSql.includes(keyword.toUpperCase())) {
+        this.logger.warn('Blocked SQL keyword detected', {
+          keyword,
+          sqlPreview: sql.substring(0, 100)
+        });
         throw new SecurityError(`Blocked keyword detected: ${keyword}`);
       }
     }
@@ -103,8 +177,266 @@ export abstract class BaseConnector implements Connector {
     // Check if query matches allowed patterns
     const isAllowed = this.allowedPatterns.some(pattern => pattern.test(sql));
     if (!isAllowed) {
+      this.logger.warn('Query pattern not allowed', {
+        sqlPreview: sql.substring(0, 100),
+        allowedPatterns: this.allowedPatterns.map(p => p.source)
+      });
       throw new SecurityError('Query pattern not allowed');
     }
+
+    if (this.enableDetailedLogging) {
+      this.logger.debug('Traditional query validation passed', {
+        sqlPreview: sql.substring(0, 100)
+      });
+    }
+  }
+
+  /**
+   * Enhanced query validation using complexity analyzer
+   */
+  private async validateQueryWithAnalyzer(sql: string, tableNames: string[]): Promise<void> {
+    try {
+      // Get table metadata for analysis
+      const tableMetadata = await this.getTableMetadataForAnalysis(tableNames);
+
+      // Analyze query complexity
+      const analysis = this.queryAnalyzer.analyzeQuery(sql, tableMetadata);
+
+      // Log analysis results
+      this.logQueryAnalysis(sql, analysis);
+
+      // Check if query should be blocked
+      if (!analysis.allowExecution) {
+        const reason = this.getBlockingReason(analysis);
+        throw new SecurityError(`Query blocked by security analysis: ${reason}`);
+      }
+
+      // Log warnings if present
+      if (analysis.securityWarnings.length > 0 || analysis.performanceWarnings.length > 0) {
+        this.logger.warn('Query analysis warnings', {
+          sqlPreview: sql.substring(0, 100),
+          riskScore: analysis.riskScore,
+          complexityScore: analysis.complexityScore,
+          securityWarnings: analysis.securityWarnings,
+          performanceWarnings: analysis.performanceWarnings,
+          recommendations: analysis.recommendations
+        });
+      }
+
+    } catch (error) {
+      // If analysis fails, fall back to traditional validation
+      if (error instanceof SecurityError) {
+        throw error; // Re-throw security errors
+      }
+
+      this.logger.warn('Query analysis failed, using traditional validation only', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        sqlPreview: sql.substring(0, 100)
+      });
+    }
+  }
+
+  /**
+   * Get table metadata for query analysis
+   */
+  private async getTableMetadataForAnalysis(tableNames: string[]): Promise<TableMetadata[]> {
+    const metadata: TableMetadata[] = [];
+
+    for (const tableName of tableNames) {
+      try {
+        // Try to get from cache first
+        const cached = this.schemaCache.get(this.config.database, tableName);
+
+        if (cached) {
+          metadata.push(this.convertCachedToTableMetadata(cached));
+        } else {
+          // Get fresh metadata and cache it
+          const fresh = await this.getTableMetadataFresh(tableName);
+          if (fresh) {
+            metadata.push(fresh);
+            await this.cacheTableMetadata(fresh);
+          }
+        }
+      } catch (error) {
+        this.logger.debug('Failed to get table metadata for analysis', {
+          tableName,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+        // Continue without this table's metadata
+      }
+    }
+
+    return metadata;
+  }
+
+  /**
+   * Convert cached schema to table metadata format
+   */
+  private convertCachedToTableMetadata(cached: CachedTableSchema): TableMetadata {
+    return {
+      name: cached.tableName,
+      estimatedRows: cached.estimatedRows,
+      sizeBytes: cached.sizeBytes,
+      indexes: cached.indexes.map(idx => ({
+        name: idx.name,
+        columns: idx.columns,
+        unique: idx.unique,
+        type: idx.type
+      })),
+      columns: cached.columns.map(col => ({
+        name: col.name,
+        type: col.type,
+        nullable: col.nullable,
+        indexed: col.indexed,
+        cardinality: col.estimatedCardinality
+      })),
+      lastUpdated: cached.cachedAt
+    };
+  }
+
+  /**
+   * Get fresh table metadata (to be overridden by specific connectors)
+   */
+  protected async getTableMetadataFresh(tableName: string): Promise<TableMetadata | null> {
+    // Default implementation - subclasses should override
+    try {
+      // Use internal row count to avoid validation recursion
+      const rowCount = await this.getRowCountInternal(tableName, false);
+      return {
+        name: tableName,
+        estimatedRows: rowCount,
+        indexes: [],
+        columns: [],
+        lastUpdated: new Date()
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Cache table metadata
+   */
+  private async cacheTableMetadata(metadata: TableMetadata): Promise<void> {
+    try {
+      const cachedSchema: Omit<CachedTableSchema, 'cachedAt' | 'expiresAt'> = {
+        tableName: metadata.name,
+        database: this.config.database,
+        columns: metadata.columns.map(col => ({
+          name: col.name,
+          type: col.type,
+          nullable: col.nullable,
+          indexed: col.indexed || false,
+          isPrimaryKey: false, // Would need specific detection
+          estimatedCardinality: col.cardinality
+        })),
+        indexes: metadata.indexes.map(idx => ({
+          name: idx.name,
+          columns: idx.columns,
+          unique: idx.unique,
+          type: idx.type || 'btree',
+          isPrimary: false, // Would need specific detection
+          sizeBytes: undefined
+        })),
+        estimatedRows: metadata.estimatedRows,
+        sizeBytes: metadata.sizeBytes,
+        structureHash: generateStructureHash(
+          metadata.columns.map(col => ({
+            name: col.name,
+            type: col.type,
+            nullable: col.nullable,
+            indexed: col.indexed || false,
+            isPrimaryKey: false,
+            estimatedCardinality: col.cardinality
+          })),
+          metadata.indexes.map(idx => ({
+            name: idx.name,
+            columns: idx.columns,
+            unique: idx.unique,
+            type: idx.type || 'btree',
+            isPrimary: false
+          }))
+        )
+      };
+
+      this.schemaCache.set(cachedSchema);
+
+      if (this.enableDetailedLogging) {
+        this.logger.debug('Table metadata cached', {
+          tableName: metadata.name,
+          estimatedRows: metadata.estimatedRows,
+          columns: metadata.columns.length,
+          indexes: metadata.indexes.length
+        });
+      }
+    } catch (error) {
+      this.logger.warn('Failed to cache table metadata', {
+        tableName: metadata.name,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
+  /**
+   * Log query analysis results
+   */
+  private logQueryAnalysis(sql: string, analysis: QueryComplexity): void {
+    const logData = {
+      sqlPreview: sql.substring(0, 100),
+      allowExecution: analysis.allowExecution,
+      riskScore: analysis.riskScore,
+      complexityScore: analysis.complexityScore,
+      estimatedCost: analysis.estimatedCost,
+      queryType: analysis.details.queryType,
+      tableCount: analysis.details.tableCount,
+      joinCount: analysis.details.joinCount,
+      hasSubqueries: analysis.details.hasSubqueries,
+      hasWildcards: analysis.details.hasWildcards,
+      estimatedResultSize: analysis.details.estimatedResultSize
+    };
+
+    if (analysis.allowExecution) {
+      if (analysis.riskScore > 50 || analysis.complexityScore > 50) {
+        this.logger.warn('High-risk query approved for execution', logData);
+      } else if (this.enableDetailedLogging) {
+        this.logger.debug('Query analysis completed', logData);
+      }
+    } else {
+      this.logger.error('Query blocked by analysis', {
+        ...logData,
+        securityWarnings: analysis.securityWarnings,
+        performanceWarnings: analysis.performanceWarnings
+      });
+    }
+  }
+
+  /**
+   * Get reason why query was blocked
+   */
+  private getBlockingReason(analysis: QueryComplexity): string {
+    const reasons: string[] = [];
+
+    if (analysis.riskScore > this.queryAnalyzer.getConfig().maxRiskScore) {
+      reasons.push(`risk score ${analysis.riskScore} exceeds limit`);
+    }
+
+    if (analysis.complexityScore > this.queryAnalyzer.getConfig().maxComplexityScore) {
+      reasons.push(`complexity score ${analysis.complexityScore} exceeds limit`);
+    }
+
+    if (analysis.estimatedCost > this.queryAnalyzer.getConfig().maxEstimatedCost) {
+      reasons.push(`estimated cost ${analysis.estimatedCost} exceeds limit`);
+    }
+
+    if (analysis.details.estimatedResultSize > this.queryAnalyzer.getConfig().maxResultSetSize) {
+      reasons.push(`result set size ${analysis.details.estimatedResultSize} exceeds limit`);
+    }
+
+    if (analysis.securityWarnings.some(w => w.includes('injection'))) {
+      reasons.push('potential SQL injection detected');
+    }
+
+    return reasons.join(', ') || 'security policy violation';
   }
 
   /**
@@ -184,64 +516,147 @@ export abstract class BaseConnector implements Connector {
    * Get row count for a table using parameterized query
    */
   async getRowCount(table: string): Promise<number> {
+    return this.getRowCountInternal(table, true);
+  }
+
+  /**
+   * Internal row count method with optional validation
+   */
+  private async getRowCountInternal(table: string, validateQuery = true): Promise<number> {
     const escapedTable = this.escapeIdentifier(table);
     const sql = `SELECT COUNT(*) as count FROM ${escapedTable}`;
 
-    this.validateQuery(sql);
-
-    try {
-      const result = await this.executeWithTimeout(
-        () => this.executeQuery(sql),
-        this.queryTimeout
-      );
-
-      if (!result || result.length === 0) {
-        throw new Error('No result returned');
-      }
-
-      const count = parseInt(result[0].count || '0', 10);
-      return isNaN(count) ? 0 : count;
-    } catch (error) {
-      throw new Error(this.sanitizeError(error));
+    // Only validate if not being called for internal metadata purposes
+    if (validateQuery) {
+      await this.validateQuery(sql, [table]);
     }
+
+    return logTimedOperation(
+      this.logger,
+      'getRowCount',
+      async () => {
+        return timeOperation(
+          this.metrics,
+          'getRowCount',
+          this.config.database,
+          table,
+          async () => {
+            const result = await this.executeWithTimeout(
+              () => this.executeQuery(sql),
+              this.queryTimeout
+            );
+
+            if (!result || result.length === 0) {
+              throw new Error('No result returned');
+            }
+
+            const count = parseInt(result[0].count || '0', 10);
+            const finalCount = isNaN(count) ? 0 : count;
+
+            if (this.enableDetailedLogging) {
+              this.logger.debug('Retrieved row count', {
+                table,
+                count: finalCount,
+                query: sql,
+                internal: !validateQuery
+              });
+            }
+
+            return finalCount;
+          }
+        );
+      },
+      { table, operation: 'getRowCount' }
+    );
   }
 
   /**
    * Get maximum timestamp value from a column
    */
   async getMaxTimestamp(table: string, column: string): Promise<Date | null> {
+    return this.getMaxTimestampInternal(table, column, true);
+  }
+
+  /**
+   * Internal max timestamp method with optional validation
+   */
+  private async getMaxTimestampInternal(table: string, column: string, validateQuery = true): Promise<Date | null> {
     const escapedTable = this.escapeIdentifier(table);
     const escapedColumn = this.escapeIdentifier(column);
     const sql = `SELECT MAX(${escapedColumn}) as max_date FROM ${escapedTable}`;
 
-    this.validateQuery(sql);
-
-    try {
-      const result = await this.executeWithTimeout(
-        () => this.executeQuery(sql),
-        this.queryTimeout
-      );
-
-      if (!result || result.length === 0 || !result[0].max_date) {
-        return null;
-      }
-
-      const dateValue = result[0].max_date;
-      return dateValue instanceof Date ? dateValue : new Date(dateValue);
-    } catch (error) {
-      throw new Error(this.sanitizeError(error));
+    // Only validate if not being called for internal metadata purposes
+    if (validateQuery) {
+      await this.validateQuery(sql, [table]);
     }
+
+    return logTimedOperation(
+      this.logger,
+      'getMaxTimestamp',
+      async () => {
+        return timeOperation(
+          this.metrics,
+          'getMaxTimestamp',
+          this.config.database,
+          table,
+          async () => {
+            const result = await this.executeWithTimeout(
+              () => this.executeQuery(sql),
+              this.queryTimeout
+            );
+
+            if (!result || result.length === 0 || !result[0].max_date) {
+              if (this.enableDetailedLogging) {
+                this.logger.debug('No timestamp found', {
+                  table,
+                  column,
+                  query: sql,
+                  internal: !validateQuery
+                });
+              }
+              return null;
+            }
+
+            const dateValue = result[0].max_date;
+            const finalDate = dateValue instanceof Date ? dateValue : new Date(dateValue);
+
+            if (this.enableDetailedLogging) {
+              this.logger.debug('Retrieved max timestamp', {
+                table,
+                column,
+                maxTimestamp: finalDate.toISOString(),
+                query: sql,
+                internal: !validateQuery
+              });
+            }
+
+            return finalDate;
+          }
+        );
+      },
+      { table, column, operation: 'getMaxTimestamp' }
+    );
   }
 
   /**
    * Get minimum timestamp value from a column
    */
   async getMinTimestamp(table: string, column: string): Promise<Date | null> {
+    return this.getMinTimestampInternal(table, column, true);
+  }
+
+  /**
+   * Internal min timestamp method with optional validation
+   */
+  private async getMinTimestampInternal(table: string, column: string, validateQuery = true): Promise<Date | null> {
     const escapedTable = this.escapeIdentifier(table);
     const escapedColumn = this.escapeIdentifier(column);
     const sql = `SELECT MIN(${escapedColumn}) as min_date FROM ${escapedTable}`;
 
-    this.validateQuery(sql);
+    // Only validate if not being called for internal metadata purposes
+    if (validateQuery) {
+      await this.validateQuery(sql, [table]);
+    }
 
     try {
       const result = await this.executeWithTimeout(
@@ -250,11 +665,31 @@ export abstract class BaseConnector implements Connector {
       );
 
       if (!result || result.length === 0 || !result[0].min_date) {
+        if (this.enableDetailedLogging) {
+          this.logger.debug('No minimum timestamp found', {
+            table,
+            column,
+            query: sql,
+            internal: !validateQuery
+          });
+        }
         return null;
       }
 
       const dateValue = result[0].min_date;
-      return dateValue instanceof Date ? dateValue : new Date(dateValue);
+      const finalDate = dateValue instanceof Date ? dateValue : new Date(dateValue);
+
+      if (this.enableDetailedLogging) {
+        this.logger.debug('Retrieved min timestamp', {
+          table,
+          column,
+          minTimestamp: finalDate.toISOString(),
+          query: sql,
+          internal: !validateQuery
+        });
+      }
+
+      return finalDate;
     } catch (error) {
       throw new Error(this.sanitizeError(error));
     }
@@ -276,8 +711,70 @@ export abstract class BaseConnector implements Connector {
    */
   protected validateResultSize(results: any[]): void {
     if (results.length > this.maxRows) {
+      this.logger.error('Query returned too many rows', {
+        resultCount: results.length,
+        maxRows: this.maxRows
+      });
       throw new SecurityError(`Query returned too many rows (max ${this.maxRows})`);
     }
+
+    if (this.enableDetailedLogging && results.length > this.maxRows * 0.8) {
+      this.logger.warn('Query returned close to max row limit', {
+        resultCount: results.length,
+        maxRows: this.maxRows,
+        utilizationPercent: Math.round((results.length / this.maxRows) * 100)
+      });
+    }
+  }
+
+  /**
+   * Helper method for specific connectors to log operations with consistent format
+   */
+  protected logOperation(operation: string, context: LogContext): void {
+    this.logger.info(`Database operation: ${operation}`, {
+      ...context,
+      database: this.config.database,
+      host: this.config.host
+    });
+  }
+
+  /**
+   * Helper method for specific connectors to log errors with consistent format
+   */
+  protected logError(operation: string, error: Error, context?: LogContext): void {
+    this.logger.error(`Database operation failed: ${operation}`, error, {
+      ...context,
+      database: this.config.database,
+      host: this.config.host
+    });
+  }
+
+  /**
+   * Get schema cache statistics
+   */
+  protected getSchemaCacheStats(): any {
+    return this.schemaCache.getStats();
+  }
+
+  /**
+   * Clear schema cache for testing or maintenance
+   */
+  protected clearSchemaCache(): void {
+    this.schemaCache.clear();
+  }
+
+  /**
+   * Get query analyzer configuration
+   */
+  protected getQueryAnalyzerConfig(): any {
+    return this.queryAnalyzer.getConfig();
+  }
+
+  /**
+   * Cleanup resources (should be called by subclasses in their close method)
+   */
+  protected cleanup(): void {
+    this.schemaCache.stop();
   }
 
   // ==============================================
@@ -289,6 +786,19 @@ export abstract class BaseConnector implements Connector {
    * Subclasses implement this with their specific database driver
    */
   protected abstract executeQuery(sql: string): Promise<any[]>;
+
+  /**
+   * Execute a parameterized SQL query (recommended for security)
+   * Subclasses should override this to use proper prepared statements
+   */
+  protected async executeParameterizedQuery(sql: string, parameters: any[] = []): Promise<any[]> {
+    // Default implementation falls back to executeQuery for backward compatibility
+    // Subclasses should override this to use proper parameterized queries
+    if (parameters.length > 0) {
+      console.warn('Parameters provided but connector does not support parameterized queries. Consider upgrading connector implementation.');
+    }
+    return this.executeQuery(sql);
+  }
 
   /**
    * Test database connection

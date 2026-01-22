@@ -43,11 +43,11 @@ export interface ConnectorConfig {
  */
 export interface TableSchema {
   table: string;
-  columns: Array<{
+  columns: {
     name: string;
     type: string;
     nullable: boolean;
-  }>;
+  }[];
 }
 
 /**
@@ -134,6 +134,18 @@ export interface SecurityConfig {
 
   /** Blocked SQL keywords */
   blockedKeywords: string[];
+
+  /** Enable detailed logging for debugging */
+  enableDetailedLogging?: boolean;
+
+  /** Enable query complexity analysis */
+  enableQueryAnalysis?: boolean;
+
+  /** Maximum query risk score to allow (0-100) */
+  maxQueryRiskScore?: number;
+
+  /** Maximum query complexity score to allow (0-100) */
+  maxQueryComplexityScore?: number;
 }
 
 /**

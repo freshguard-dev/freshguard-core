@@ -110,74 +110,73 @@ describe('SQL Injection Prevention', () => {
       await expect(connector.getMinTimestamp('users', 'created_at')).resolves.not.toThrow();
     });
 
-    it('should block INSERT statements', () => {
-      expect(() => {
-        // Access the protected validateQuery method for testing
-        (connector as any).validateQuery("INSERT INTO users VALUES ('hacker')");
-      }).toThrow(SecurityError);
-      expect(() => {
-        (connector as any).validateQuery("INSERT INTO users VALUES ('hacker')");
-      }).toThrow('Blocked keyword detected: INSERT');
+    it('should block INSERT statements', async () => {
+      await expect(
+        (connector as any).validateQuery("INSERT INTO users VALUES ('hacker')")
+      ).rejects.toThrow(SecurityError);
+      await expect(
+        (connector as any).validateQuery("INSERT INTO users VALUES ('hacker')")
+      ).rejects.toThrow('Blocked keyword detected: INSERT');
     });
 
-    it('should block UPDATE statements', () => {
-      expect(() => {
-        (connector as any).validateQuery("UPDATE users SET password = 'hacked'");
-      }).toThrow(SecurityError);
-      expect(() => {
-        (connector as any).validateQuery("UPDATE users SET password = 'hacked'");
-      }).toThrow('Blocked keyword detected: UPDATE');
+    it('should block UPDATE statements', async () => {
+      await expect(
+        (connector as any).validateQuery("UPDATE users SET password = 'hacked'")
+      ).rejects.toThrow(SecurityError);
+      await expect(
+        (connector as any).validateQuery("UPDATE users SET password = 'hacked'")
+      ).rejects.toThrow('Blocked keyword detected: UPDATE');
     });
 
-    it('should block DELETE statements', () => {
-      expect(() => {
-        (connector as any).validateQuery("DELETE FROM users");
-      }).toThrow(SecurityError);
-      expect(() => {
-        (connector as any).validateQuery("DELETE FROM users");
-      }).toThrow('Blocked keyword detected: DELETE');
+    it('should block DELETE statements', async () => {
+      await expect(
+        (connector as any).validateQuery("DELETE FROM users")
+      ).rejects.toThrow(SecurityError);
+      await expect(
+        (connector as any).validateQuery("DELETE FROM users")
+      ).rejects.toThrow('Blocked keyword detected: DELETE');
     });
 
-    it('should block DROP statements', () => {
-      expect(() => {
-        (connector as any).validateQuery("DROP TABLE users");
-      }).toThrow(SecurityError);
-      expect(() => {
-        (connector as any).validateQuery("DROP TABLE users");
-      }).toThrow('Blocked keyword detected: DROP');
+    it('should block DROP statements', async () => {
+      await expect(
+        (connector as any).validateQuery("DROP TABLE users")
+      ).rejects.toThrow(SecurityError);
+      await expect(
+        (connector as any).validateQuery("DROP TABLE users")
+      ).rejects.toThrow('Blocked keyword detected: DROP');
     });
 
-    it('should block ALTER statements', () => {
-      expect(() => {
-        (connector as any).validateQuery("ALTER TABLE users ADD COLUMN evil TEXT");
-      }).toThrow(SecurityError);
+    it('should block ALTER statements', async () => {
+      await expect(
+        (connector as any).validateQuery("ALTER TABLE users ADD COLUMN evil TEXT")
+      ).rejects.toThrow(SecurityError);
     });
 
-    it('should block SQL comments', () => {
-      expect(() => {
-        (connector as any).validateQuery("SELECT * FROM users -- comment");
-      }).toThrow(SecurityError);
-      expect(() => {
-        (connector as any).validateQuery("SELECT * FROM users /* comment */");
-      }).toThrow(SecurityError);
+    it('should block SQL comments', async () => {
+      await expect(
+        (connector as any).validateQuery("SELECT * FROM users -- comment")
+      ).rejects.toThrow(SecurityError);
+      await expect(
+        (connector as any).validateQuery("SELECT * FROM users /* comment */")
+      ).rejects.toThrow(SecurityError);
     });
 
-    it('should block stored procedures', () => {
-      expect(() => {
-        (connector as any).validateQuery("EXEC xp_cmdshell 'dir'");
-      }).toThrow(SecurityError);
-      expect(() => {
-        (connector as any).validateQuery("EXECUTE sp_configure 'show advanced options'");
-      }).toThrow(SecurityError);
+    it('should block stored procedures', async () => {
+      await expect(
+        (connector as any).validateQuery("EXEC xp_cmdshell 'dir'")
+      ).rejects.toThrow(SecurityError);
+      await expect(
+        (connector as any).validateQuery("EXECUTE sp_configure 'show advanced options'")
+      ).rejects.toThrow(SecurityError);
     });
 
-    it('should reject unknown query patterns', () => {
-      expect(() => {
-        (connector as any).validateQuery("GRANT ALL PRIVILEGES ON *.* TO 'user'@'%'");
-      }).toThrow(SecurityError);
-      expect(() => {
-        (connector as any).validateQuery("GRANT ALL PRIVILEGES ON *.* TO 'user'@'%'");
-      }).toThrow('Query pattern not allowed');
+    it('should reject unknown query patterns', async () => {
+      await expect(
+        (connector as any).validateQuery("GRANT ALL PRIVILEGES ON *.* TO 'user'@'%'")
+      ).rejects.toThrow(SecurityError);
+      await expect(
+        (connector as any).validateQuery("GRANT ALL PRIVILEGES ON *.* TO 'user'@'%'")
+      ).rejects.toThrow('Query pattern not allowed');
     });
   });
 

@@ -7,7 +7,7 @@
 
 import * as snowflake from 'snowflake-sdk';
 import { BaseConnector } from './base-connector.js';
-import type { ConnectorConfig, TableSchema } from '../types/connector.js';
+import type { ConnectorConfig, TableSchema, SecurityConfig } from '../types/connector.js';
 import type { SourceCredentials } from '../types.js';
 import {
   ConnectionError,
@@ -37,10 +37,10 @@ export class SnowflakeConnector extends BaseConnector {
   private schema: string = 'PUBLIC';
   private connected: boolean = false;
 
-  constructor(config: ConnectorConfig) {
+  constructor(config: ConnectorConfig, securityConfig?: Partial<SecurityConfig>) {
     // Validate Snowflake-specific configuration
     SnowflakeConnector.validateSnowflakeConfig(config);
-    super(config);
+    super(config, securityConfig);
 
     // Extract account from host
     this.account = this.extractAccount(config.host);

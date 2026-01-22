@@ -7,7 +7,7 @@
 
 import { DuckDBInstance, DuckDBConnection } from '@duckdb/node-api';
 import { BaseConnector } from './base-connector.js';
-import type { ConnectorConfig, TableSchema } from '../types/connector.js';
+import type { ConnectorConfig, TableSchema, SecurityConfig } from '../types/connector.js';
 import type { SourceCredentials } from '../types.js';
 import {
   ConnectionError,
@@ -36,10 +36,10 @@ export class DuckDBConnector extends BaseConnector {
   private databasePath: string = '';
   private connected: boolean = false;
 
-  constructor(config: ConnectorConfig) {
+  constructor(config: ConnectorConfig, securityConfig?: Partial<SecurityConfig>) {
     // Validate DuckDB-specific configuration
     DuckDBConnector.validateDuckDBConfig(config);
-    super(config);
+    super(config, securityConfig);
 
     // For DuckDB, database field contains the file path
     this.databasePath = config.database === ':memory:' ? ':memory:' : resolve(config.database);

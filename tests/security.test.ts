@@ -32,12 +32,12 @@ import {
   validateLimit,
   validateConnectionString
 } from '../src/validators/index.js';
-import type { ConnectorConfig } from '../src/types/connector.js';
+import type { ConnectorConfig, SecurityConfig } from '../src/types/connector.js';
 
 // Mock connector for testing BaseConnector security features
 class MockConnector extends BaseConnector {
-  constructor(config: ConnectorConfig) {
-    super(config);
+  constructor(config: ConnectorConfig, securityConfig?: Partial<SecurityConfig>) {
+    super(config, securityConfig);
   }
 
   protected async executeQuery(sql: string): Promise<any[]> {
@@ -72,22 +72,42 @@ describe('SQL Injection Prevention', () => {
     ssl: true
   };
 
+  // Security config that allows basic operations but still blocks dangerous ones
+  const testSecurityConfig: Partial<SecurityConfig> = {
+    requireSSL: false,
+    connectionTimeout: 30000,
+    queryTimeout: 10000,
+    maxRows: 1000,
+    allowedQueryPatterns: [
+      /^SELECT COUNT\(\*\)( as \w+)? FROM/i,
+      /^SELECT MAX\(/i,
+      /^SELECT MIN\(/i,
+      /^DESCRIBE /i,
+      /^SHOW /i,
+      /^SELECT .+ FROM information_schema\./i,
+    ],
+    blockedKeywords: [
+      'INSERT', 'UPDATE', 'DELETE', 'DROP', 'ALTER', 'TRUNCATE',
+      '--', '/*', '*/', 'EXEC', 'EXECUTE', 'xp_', 'sp_'
+    ],
+  };
+
   let connector: MockConnector;
 
   beforeEach(() => {
-    connector = new MockConnector(mockConfig);
+    connector = new MockConnector(mockConfig, testSecurityConfig);
   });
 
   describe('Query Pattern Validation', () => {
     it('should allow safe SELECT COUNT queries', async () => {
       const sql = 'SELECT COUNT(*) FROM users';
       // This should not throw
-      expect(async () => await connector.getRowCount('users')).not.toThrow();
+      await expect(connector.getRowCount('users')).resolves.not.toThrow();
     });
 
     it('should allow safe MAX/MIN queries', async () => {
-      expect(async () => await connector.getMaxTimestamp('users', 'created_at')).not.toThrow();
-      expect(async () => await connector.getMinTimestamp('users', 'created_at')).not.toThrow();
+      await expect(connector.getMaxTimestamp('users', 'created_at')).resolves.not.toThrow();
+      await expect(connector.getMinTimestamp('users', 'created_at')).resolves.not.toThrow();
     });
 
     it('should block INSERT statements', () => {

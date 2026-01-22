@@ -7,7 +7,7 @@
 
 import postgres from 'postgres';
 import { BaseConnector } from './base-connector.js';
-import type { ConnectorConfig, TableSchema } from '../types/connector.js';
+import type { ConnectorConfig, TableSchema, SecurityConfig } from '../types/connector.js';
 import type { SourceCredentials } from '../types.js';
 import {
   ConnectionError,
@@ -31,10 +31,10 @@ export class PostgresConnector extends BaseConnector {
   private client: ReturnType<typeof postgres> | null = null;
   private connected: boolean = false;
 
-  constructor(config: ConnectorConfig) {
+  constructor(config: ConnectorConfig, securityConfig?: Partial<SecurityConfig>) {
     // Validate configuration before proceeding
     validateConnectorConfig(config);
-    super(config);
+    super(config, securityConfig);
   }
 
   /**

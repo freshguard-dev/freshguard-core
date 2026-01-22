@@ -373,16 +373,8 @@ describe('Connector Comparison Tests', () => {
     const pgConnector = new PostgresConnector(mockConfig, TEST_SECURITY_CONFIG);
     const duckConnector = new DuckDBConnector(mockConfig, TEST_SECURITY_CONFIG);
 
-    // Both should have the same public methods
-    const pgMethods = Object.getOwnPropertyNames(PostgresConnector.prototype)
-      .filter(name => name !== 'constructor' && !name.startsWith('_'));
-
-    const duckMethods = Object.getOwnPropertyNames(DuckDBConnector.prototype)
-      .filter(name => name !== 'constructor' && !name.startsWith('_'));
-
-    expect(pgMethods.sort()).toEqual(duckMethods.sort());
-
-    // Check specific required methods
+    // Check that both connectors implement the required interface methods
+    // Note: Database-specific helper methods may differ between connectors
     const requiredMethods = ['connect', 'testConnection', 'listTables', 'getTableMetadata', 'query', 'close'];
 
     for (const method of requiredMethods) {

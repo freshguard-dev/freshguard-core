@@ -7,7 +7,7 @@
 
 import { BigQuery } from '@google-cloud/bigquery';
 import { BaseConnector } from './base-connector.js';
-import type { ConnectorConfig, TableSchema } from '../types/connector.js';
+import type { ConnectorConfig, TableSchema, SecurityConfig } from '../types/connector.js';
 import type { SourceCredentials } from '../types.js';
 import {
   ConnectionError,
@@ -35,10 +35,10 @@ export class BigQueryConnector extends BaseConnector {
   private location: string = 'US';
   private connected: boolean = false;
 
-  constructor(config: ConnectorConfig) {
+  constructor(config: ConnectorConfig, securityConfig?: Partial<SecurityConfig>) {
     // Validate BigQuery-specific configuration
     BigQueryConnector.validateBigQueryConfig(config);
-    super(config);
+    super(config, securityConfig);
 
     // For BigQuery, database field contains the project ID
     this.projectId = config.database;

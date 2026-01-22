@@ -291,6 +291,19 @@ export abstract class BaseConnector implements Connector {
   protected abstract executeQuery(sql: string): Promise<any[]>;
 
   /**
+   * Execute a parameterized SQL query (recommended for security)
+   * Subclasses should override this to use proper prepared statements
+   */
+  protected async executeParameterizedQuery(sql: string, parameters: any[] = []): Promise<any[]> {
+    // Default implementation falls back to executeQuery for backward compatibility
+    // Subclasses should override this to use proper parameterized queries
+    if (parameters.length > 0) {
+      console.warn('Parameters provided but connector does not support parameterized queries. Consider upgrading connector implementation.');
+    }
+    return this.executeQuery(sql);
+  }
+
+  /**
    * Test database connection
    * Subclasses implement with database-specific connection test
    */

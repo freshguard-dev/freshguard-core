@@ -133,9 +133,9 @@ export class SnowflakeConnector extends BaseConnector {
   }
 
   /**
-   * Execute a validated SQL query with security measures
+   * Execute a parameterized SQL query using Snowflake bind variables
    */
-  protected async executeQuery(sql: string): Promise<any[]> {
+  protected async executeParameterizedQuery(sql: string, parameters: any[] = []): Promise<any[]> {
     await this.connect();
 
     if (!this.connection) {
@@ -143,18 +143,34 @@ export class SnowflakeConnector extends BaseConnector {
     }
 
     try {
+      // Convert positional parameters ($1, $2, etc.) to Snowflake bind variables (?, ?, etc.)
+      let finalSql = sql;
+      if (parameters.length > 0) {
+        for (let i = 0; i < parameters.length; i++) {
+          const placeholder = `$${i + 1}`;
+          finalSql = finalSql.replace(new RegExp(`\\${placeholder}\\b`, 'g'), '?');
+        }
+      }
+
+      const executeOptions: any = {
+        sqlText: finalSql,
+        complete: (err: any, _stmt: any, rows: any[]) => {
+          if (err) {
+            reject(new Error(`Query execution failed: ${err.message}`));
+          } else {
+            resolve(rows || []);
+          }
+        }
+      };
+
+      // Add bind parameters if any exist
+      if (parameters.length > 0) {
+        executeOptions.binds = parameters;
+      }
+
       const result = await this.executeWithTimeout(
         () => new Promise<any[]>((resolve, reject) => {
-          this.connection!.execute({
-            sqlText: sql,
-            complete: (err, _stmt, rows) => {
-              if (err) {
-                reject(new Error(`Query execution failed: ${err.message}`));
-              } else {
-                resolve(rows || []);
-              }
-            }
-          });
+          this.connection!.execute(executeOptions);
         }),
         this.queryTimeout
       );
@@ -176,6 +192,13 @@ export class SnowflakeConnector extends BaseConnector {
         error instanceof Error ? error : undefined
       );
     }
+  }
+
+  /**
+   * Execute a validated SQL query with security measures
+   */
+  protected async executeQuery(sql: string): Promise<any[]> {
+    return this.executeParameterizedQuery(sql, []);
   }
 
   /**
@@ -209,16 +232,16 @@ export class SnowflakeConnector extends BaseConnector {
     const sql = `
       SELECT table_name
       FROM INFORMATION_SCHEMA.TABLES
-      WHERE table_schema = '${this.schema.toUpperCase()}'
+      WHERE table_schema = $1
         AND table_type = 'BASE TABLE'
       ORDER BY table_name
-      LIMIT ${this.maxRows}
+      LIMIT $2
     `;
 
     this.validateQuery(sql);
 
     try {
-      const result = await this.executeQuery(sql);
+      const result = await this.executeParameterizedQuery(sql, [this.schema.toUpperCase(), this.maxRows]);
       return result.map((row: any) => row.TABLE_NAME).filter(Boolean);
     } catch (error) {
       throw new QueryError(
@@ -237,22 +260,26 @@ export class SnowflakeConnector extends BaseConnector {
     const parsedTable = this.parseTableName(table);
     const tableNameUpper = parsedTable.split('.').pop()?.toUpperCase();
 
+    if (!tableNameUpper) {
+      throw new QueryError('Invalid table name format', 'invalid_table_name');
+    }
+
     const sql = `
       SELECT
         column_name,
         data_type,
         is_nullable
       FROM INFORMATION_SCHEMA.COLUMNS
-      WHERE table_name = '${tableNameUpper}'
-        AND table_schema = '${this.schema.toUpperCase()}'
+      WHERE table_name = $1
+        AND table_schema = $2
       ORDER BY ordinal_position
-      LIMIT ${this.maxRows}
+      LIMIT $3
     `;
 
     this.validateQuery(sql);
 
     try {
-      const result = await this.executeQuery(sql);
+      const result = await this.executeParameterizedQuery(sql, [tableNameUpper, this.schema.toUpperCase(), this.maxRows]);
 
       if (result.length === 0) {
         throw QueryError.tableNotFound(table);

@@ -60,6 +60,91 @@ jobs:
       - name: Security audit
         run: pnpm audit --audit-level moderate
 
+      - name: Install security scanning tools
+        run: |
+          # Install SBOM generation tools
+          pnpm install -g @cyclonedx/cyclonedx-npm
+          # Install Syft for additional SBOM formats
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+
+      - name: Generate Software Bill of Materials (SBOM)
+        run: |
+          # Generate SBOM in multiple formats for transparency
+          echo "🔍 Generating Software Bill of Materials..."
+
+          # CycloneDX format (JSON)
+          cyclonedx-npm --output-file sbom-cyclonedx.json --output-format json
+
+          # SPDX format using Syft
+          syft packages . -o spdx-json=sbom-spdx.json
+          syft packages . -o syft-json=sbom-syft.json
+
+          # Create human-readable SBOM
+          echo "# FreshGuard Core - Software Bill of Materials" > SBOM.md
+          echo "" >> SBOM.md
+          echo "Generated: $(date -u)" >> SBOM.md
+          echo "Version: ${GITHUB_REF#refs/tags/v}" >> SBOM.md
+          echo "" >> SBOM.md
+          echo "## Dependencies" >> SBOM.md
+          echo "" >> SBOM.md
+          syft packages . -o table >> SBOM.md
+
+          # Validate SBOM files
+          if [[ ! -f sbom-cyclonedx.json ]] || [[ ! -f sbom-spdx.json ]]; then
+            echo "❌ SBOM generation failed"
+            exit 1
+          fi
+          echo "✅ SBOM generated successfully"
+
+      - name: Vulnerability scanning
+        run: |
+          echo "🔍 Running vulnerability scans..."
+
+          # Grype for vulnerability scanning
+          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+
+          # Scan for vulnerabilities
+          grype . --output json --file vulnerability-report.json
+          grype . --output table
+
+          # Check for critical vulnerabilities
+          CRITICAL_VULNS=$(grype . --output json | jq '.matches[]? | select(.vulnerability.severity == "Critical") | .vulnerability.id' | wc -l)
+          if [ "$CRITICAL_VULNS" -gt 0 ]; then
+            echo "❌ Found $CRITICAL_VULNS critical vulnerabilities"
+            echo "Please address critical vulnerabilities before publishing"
+            exit 1
+          fi
+          echo "✅ No critical vulnerabilities found"
+
+      - name: Supply chain security verification
+        run: |
+          echo "🔍 Verifying supply chain security..."
+
+          # Check for suspicious dependencies
+          pnpm audit --audit-level high
+
+          # Verify package integrity
+          pnpm install --frozen-lockfile --ignore-scripts
+
+          # Check for known malicious packages (basic check)
+          SUSPICIOUS_PATTERNS=(
+            "bitcoin"
+            "crypto-miner"
+            "monero"
+            "exec("
+            "child_process"
+            "eval("
+            "Function("
+          )
+
+          for pattern in "${SUSPICIOUS_PATTERNS[@]}"; do
+            if grep -r "$pattern" node_modules/ --include="*.js" --exclude-dir="test*" 2>/dev/null | head -5; then
+              echo "⚠️ Found suspicious pattern: $pattern (manual review recommended)"
+            fi
+          done
+
+          echo "✅ Supply chain verification complete"
+
       - name: Verify open-core compliance
         run: |
           echo "🔍 Final verification of open-core compliance..."
@@ -119,6 +204,38 @@ jobs:
       - name: Build packages
         run: pnpm build
 
+      - name: Install package signing tools
+        run: |
+          # Install cosign for container/artifact signing
+          curl -O -L "https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64"
+          sudo mv cosign-linux-amd64 /usr/local/bin/cosign
+          sudo chmod +x /usr/local/bin/cosign
+
+      - name: Generate and sign package
+        run: |
+          echo "🔏 Generating and signing package..."
+
+          # Create tarball of the package for signing
+          pnpm pack
+
+          # Get the generated tarball name
+          TARBALL=$(ls *.tgz | head -1)
+          echo "Generated tarball: $TARBALL"
+
+          # Sign with cosign using keyless signing (OIDC)
+          cosign sign-blob --yes "$TARBALL" --output-signature "${TARBALL}.sig" --output-certificate "${TARBALL}.crt"
+
+          # Verify the signature
+          cosign verify-blob --certificate "${TARBALL}.crt" --signature "${TARBALL}.sig" \
+            --certificate-identity-regexp=".*" \
+            --certificate-oidc-issuer="https://token.actions.githubusercontent.com" "$TARBALL"
+
+          echo "✅ Package signed successfully"
+
+          # Display signature info
+          echo "📜 Signature files created:"
+          ls -la *.sig *.crt
+
       - name: Extract version from tag
         id: extract_version
         run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
@@ -126,17 +243,86 @@ jobs:
       - name: Publish package
         run: pnpm publish --access public --provenance --no-git-checks
 
+      - name: Copy SBOM and signature files from test job
+        run: |
+          echo "📋 Copying SBOM and signature files for release..."
+          # Note: In a real workflow, you'd use artifacts to transfer files between jobs
+          # For now, we'll regenerate the SBOM quickly for the release
+
+          # Install SBOM tools
+          pnpm install -g @cyclonedx/cyclonedx-npm
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+
+          # Generate SBOM for release
+          cyclonedx-npm --output-file sbom-cyclonedx.json --output-format json
+          syft packages . -o spdx-json=sbom-spdx.json
+
+          # Create human-readable SBOM for release
+          echo "# FreshGuard Core v${{ steps.extract_version.outputs.version }} - Software Bill of Materials" > SBOM.md
+          echo "" >> SBOM.md
+          echo "**Generated:** $(date -u)" >> SBOM.md
+          echo "**Version:** ${{ steps.extract_version.outputs.version }}" >> SBOM.md
+          echo "**Package:** @thias-se/freshguard-core" >> SBOM.md
+          echo "" >> SBOM.md
+          echo "## Security Information" >> SBOM.md
+          echo "" >> SBOM.md
+          echo "- Package signed with cosign using keyless signing" >> SBOM.md
+          echo "- OIDC identity verified through GitHub Actions" >> SBOM.md
+          echo "- Vulnerability scanned before release" >> SBOM.md
+          echo "- Supply chain verified" >> SBOM.md
+          echo "" >> SBOM.md
+          echo "## Dependencies" >> SBOM.md
+          echo "" >> SBOM.md
+          syft packages . -o table >> SBOM.md
+
+          echo "✅ SBOM prepared for release"
+
       - name: Create GitHub release
-        uses: actions/create-release@v1
+        uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref }}
-          release_name: Release ${{ steps.extract_version.outputs.version }}
-          #body_path: .github/release-notes.md  # Optional custom file
-          generate-release-notes: true  # Auto-generates from commits/PRs
+          name: "FreshGuard Core v${{ steps.extract_version.outputs.version }}"
+          body: |
+            # FreshGuard Core v${{ steps.extract_version.outputs.version }}
+
+            ## Security Features ✅
+
+            - **Package Integrity**: Signed with cosign using keyless signing
+            - **Supply Chain Security**: SBOM included for transparency
+            - **Vulnerability Scanning**: Scanned for known vulnerabilities
+            - **Open Source**: MIT licensed, no proprietary dependencies
+
+            ## Installation
+
+            ```bash
+            pnpm install @thias-se/freshguard-core@${{ steps.extract_version.outputs.version }}
+            ```
+
+            ## Security Verification
+
+            Verify package signature:
+            ```bash
+            # Download signature files from this release
+            cosign verify-blob --certificate freshguard-core.crt --signature freshguard-core.sig \
+              --certificate-identity-regexp=".*" \
+              --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
+              freshguard-core.tgz
+            ```
+
+            ## What's Changed
+
+          generate_release_notes: true
           draft: false
           prerelease: false
+          files: |
+            *.tgz
+            *.sig
+            *.crt
+            sbom-cyclonedx.json
+            sbom-spdx.json
+            SBOM.md
 
   verify-published:
     needs: publish

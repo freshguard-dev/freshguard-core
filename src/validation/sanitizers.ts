@@ -449,7 +449,3 @@ export const policies = {
   STRICT_POLICY
 } as const;
 
-export type {
-  SanitizationPolicy,
-  SanitizationResult
-};

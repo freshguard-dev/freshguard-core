@@ -118,7 +118,13 @@ export class OperationCancelledError extends Error {
 export class TimeoutManager {
   private readonly controller: AbortController;
   private timeoutId: NodeJS.Timeout | null = null;
-  private readonly config: Required<TimeoutConfig>;
+  private readonly config: {
+    duration: number;
+    name: string;
+    parent?: TimeoutManager;
+    message?: string;
+    propagateToChildren: boolean;
+  };
   private startTime: Date | null = null;
   private endTime: Date | null = null;
   private readonly children = new Set<TimeoutManager>();
@@ -138,11 +144,11 @@ export class TimeoutManager {
   constructor(config: TimeoutConfig) {
     this.controller = new AbortController();
     this.config = {
-      name: 'TimeoutManager',
-      parent: undefined,
-      message: undefined,
-      propagateToChildren: true,
-      ...config
+      name: config.name || 'TimeoutManager',
+      parent: config.parent,
+      message: config.message,
+      propagateToChildren: config.propagateToChildren ?? true,
+      duration: config.duration
     };
 
     // Validate configuration
@@ -283,8 +289,6 @@ export class TimeoutManager {
    */
   cancel(reason = 'Operation cancelled'): void {
     if (!this.controller.signal.aborted) {
-      // Create cancellation error
-      const error = new OperationCancelledError(this.config.name, reason);
 
       // Cancel with reason
       this.controller.abort();
@@ -306,11 +310,6 @@ export class TimeoutManager {
   private timeout(): void {
     if (!this.controller.signal.aborted) {
       this.timeoutFired = true;
-      const error = new OperationTimeoutError(
-        this.config.duration,
-        this.config.name,
-        this.config.message
-      );
 
       this.controller.abort();
 
@@ -390,7 +389,7 @@ export class TimeoutManager {
   /**
    * Get timeout configuration
    */
-  getConfig(): Required<TimeoutConfig> {
+  getConfig(): TimeoutConfig {
     return { ...this.config };
   }
 

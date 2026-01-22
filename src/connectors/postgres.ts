@@ -100,9 +100,9 @@ export class PostgresConnector extends BaseConnector {
 
     try {
       const result = await this.executeWithTimeout(
-        () => parameters.length > 0
-          ? this.client!(sql, parameters)  // Use parameterized query
-          : this.client!.unsafe(sql),      // Fallback to unsafe for non-parameterized
+        async () => parameters.length > 0
+          ? await this.client!.unsafe(sql, parameters)  // Use parameterized query with unsafe
+          : await this.client!.unsafe(sql),              // Fallback to unsafe for non-parameterized
         this.queryTimeout
       );
 
@@ -184,7 +184,7 @@ export class PostgresConnector extends BaseConnector {
    */
   async getTableSchema(table: string): Promise<TableSchema> {
     // Validate table name (identifiers cannot be parameterized)
-    this.validateIdentifier(table);
+    this.escapeIdentifier(table);
 
     const sql = `
       SELECT
@@ -233,8 +233,6 @@ export class PostgresConnector extends BaseConnector {
    * Get last modified timestamp using PostgreSQL-specific methods
    */
   async getLastModified(table: string): Promise<Date | null> {
-    const escapedTable = this.escapeIdentifier(table);
-
     // Try common timestamp columns
     const timestampColumns = ['updated_at', 'modified_at', 'last_modified', 'timestamp'];
 

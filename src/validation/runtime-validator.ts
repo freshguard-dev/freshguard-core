@@ -84,23 +84,10 @@ function formatZodErrors(zodError: z.ZodError): ValidationError[] {
     field: issue.path.join('.') || 'root',
     code: issue.code,
     message: issue.message,
-    value: issue.path.length > 0 ? undefined : issue.received // Don't include sensitive values
+    value: issue.path.length > 0 ? undefined : (issue as any).received // Don't include sensitive values
   }));
 }
 
-/**
- * Sanitize error values to prevent information leakage
- */
-function sanitizeErrorValue(value: unknown): unknown {
-  if (typeof value === 'string') {
-    // Don't leak password or credential values
-    if (value.length > 50 || /password|credential|token|key/i.test(String(value))) {
-      return '[REDACTED]';
-    }
-    return value;
-  }
-  return value;
-}
 
 // ==============================================
 // Runtime Validator Class
@@ -410,7 +397,3 @@ export {
   schemas
 };
 
-export type {
-  ValidationError,
-  ValidationResult
-};

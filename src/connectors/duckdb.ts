@@ -251,7 +251,7 @@ export class DuckDBConnector extends BaseConnector {
    */
   async getTableSchema(table: string): Promise<TableSchema> {
     // Validate table name (identifiers cannot be parameterized)
-    this.validateIdentifier(table);
+    this.escapeIdentifier(table);
 
     const sql = `
       SELECT

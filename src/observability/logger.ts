@@ -286,10 +286,7 @@ export class StructuredLogger {
       base: this.baseContext,
       timestamp: pino.stdTimeFunctions.isoTime,
       formatters: {
-        level: (label) => ({ level: label }),
-        error: (error) => ({
-          error: this.config.sanitizeSensitiveData ? sanitizeObject(error) : error
-        }),
+        level: (label: string, _number: number) => ({ level: label }),
       },
       ...this.config.pinoOptions,
     };

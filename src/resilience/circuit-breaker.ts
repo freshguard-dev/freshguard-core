@@ -11,7 +11,7 @@
  */
 
 import type { StructuredLogger} from '../observability/logger.js';
-import { createComponentLogger, LogContext } from '../observability/logger.js';
+import { createComponentLogger } from '../observability/logger.js';
 import type { MetricsCollector} from '../observability/metrics.js';
 import { createComponentMetrics } from '../observability/metrics.js';
 
@@ -141,7 +141,6 @@ export class CircuitBreaker {
   private readonly logger: StructuredLogger;
   private readonly metrics: MetricsCollector;
   private readonly enableDetailedLogging: boolean;
-  private readonly startTime: Date;
   private lastStateChangeTime: Date;
 
   constructor(config: CircuitBreakerConfig) {
@@ -151,10 +150,10 @@ export class CircuitBreaker {
       recoveryTimeout: config.recoveryTimeout || 60000, // 1 minute
       windowSize: config.windowSize || 100,
       errorFilter: config.errorFilter || (() => true), // Count all errors by default
-      name: config.name || 'Circuit'
+      name: config.name || 'Circuit',
+      enableDetailedLogging: config.enableDetailedLogging || false
     };
 
-    this.startTime = new Date();
     this.lastStateChangeTime = new Date();
 
     // Initialize observability
@@ -268,8 +267,6 @@ export class CircuitBreaker {
     this.totalCalls++;
     this.successfulCalls++;
     this.lastSuccessTime = new Date();
-
-    const previousState = this.state;
 
     switch (this.state) {
       case CircuitBreakerState.CLOSED:
@@ -453,8 +450,6 @@ export class CircuitBreaker {
    * Get current circuit breaker statistics
    */
   getStats(): CircuitBreakerStats {
-    const now = Date.now();
-    const totalTime = now - this.startTime.getTime();
     const failureRate = this.totalCalls > 0
       ? (this.failedCalls / this.totalCalls) * 100
       : 0;
@@ -566,7 +561,7 @@ export function createApiCircuitBreaker(name: string): CircuitBreaker {
       // Count 5xx errors but not 4xx client errors
       if (error.message.includes('status')) {
         const statusMatch = /status\s+(\d+)/i.exec(error.message);
-        if (statusMatch) {
+        if (statusMatch?.[1]) {
           const status = parseInt(statusMatch[1]);
           return status >= 500;
         }
@@ -593,7 +588,8 @@ export class CircuitBreakerRegistry {
         name,
         failureThreshold: 5,
         successThreshold: 3,
-        recoveryTimeout: 60000
+        recoveryTimeout: 60000,
+        windowSize: 100
       };
       circuit = new CircuitBreaker(finalConfig);
       this.circuits.set(name, circuit);

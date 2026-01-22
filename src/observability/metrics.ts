@@ -206,7 +206,7 @@ class SlidingWindow {
 
     const sorted = this.values.map(v => v.value).sort((a, b) => a - b);
     const index = Math.ceil(p * sorted.length) - 1;
-    return sorted[Math.max(0, index)];
+    return sorted[Math.max(0, index)] ?? 0;
   }
 
   /**
@@ -253,7 +253,7 @@ class SlidingWindow {
 
     if (recentValues.length === 0) return 0;
 
-    const timeSpan = (now - recentValues[0].timestamp) / 1000; // seconds
+    const timeSpan = (now - (recentValues[0]?.timestamp ?? now)) / 1000; // seconds
     return timeSpan > 0 ? recentValues.length / timeSpan : 0;
   }
 
@@ -378,14 +378,16 @@ class Histogram {
 
     // Find appropriate bucket
     for (let i = 0; i < this.buckets.length; i++) {
-      if (value <= this.buckets[i]) {
-        this.counts[i]++;
+      const bucket = this.buckets[i];
+      if (bucket !== undefined && value <= bucket) {
+        this.counts[i]!++;
         return;
       }
     }
 
     // Value is larger than all buckets, goes to +Inf bucket
-    this.counts[this.counts.length - 1]++;
+    const lastIndex = this.counts.length - 1;
+    this.counts[lastIndex]!++;
   }
 
   /**

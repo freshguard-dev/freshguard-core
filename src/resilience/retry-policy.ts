@@ -9,7 +9,7 @@
  */
 
 import type { StructuredLogger} from '../observability/logger.js';
-import { createComponentLogger, LogContext } from '../observability/logger.js';
+import { createComponentLogger } from '../observability/logger.js';
 import type { MetricsCollector} from '../observability/metrics.js';
 import { createComponentMetrics } from '../observability/metrics.js';
 
@@ -135,7 +135,10 @@ const DEFAULT_CONFIG: Required<Omit<RetryConfig, 'retryCondition' | 'delayFuncti
   baseDelay: 100,
   maxDelay: 5000,
   backoffMultiplier: 2,
-  enableJitter: true
+  enableJitter: true,
+  logger: createComponentLogger('retry-policy'),
+  metrics: createComponentMetrics('retry-policy'),
+  enableDetailedLogging: false
 };
 
 /**
@@ -179,7 +182,7 @@ export const API_RETRY_CONFIG: RetryConfig = {
     // Only retry on 5xx server errors, not 4xx client errors
     if (error.message.includes('status')) {
       const statusMatch = /status\s+(\d+)/i.exec(error.message);
-      if (statusMatch) {
+      if (statusMatch?.[1]) {
         const status = parseInt(statusMatch[1]);
         return status >= 500 && status < 600;
       }
@@ -224,7 +227,7 @@ function calculateDelay(
 /**
  * Default retry condition (retry most errors except validation)
  */
-function defaultRetryCondition(error: Error, attempt: number): boolean {
+function defaultRetryCondition(error: Error, _attempt: number): boolean {
   // Don't retry validation errors, authentication errors, or permission errors
   const nonRetryableErrors = [
     'validation',
@@ -315,11 +318,12 @@ export class RetryPolicy {
     lastExecutionTime: null
   };
 
-  constructor(config: RetryConfig = {}) {
+  constructor(config: Partial<RetryConfig> = {}) {
     this.config = {
       ...DEFAULT_CONFIG,
       retryCondition: config.retryCondition || defaultRetryCondition,
-      delayFunction: config.delayFunction || calculateDelay,
+      delayFunction: config.delayFunction || ((attempt: number, baseDelay: number, maxDelay: number) =>
+        calculateDelay(attempt, baseDelay, maxDelay, DEFAULT_CONFIG.backoffMultiplier, DEFAULT_CONFIG.enableJitter)),
       attemptTimeout: config.attemptTimeout || 0, // No timeout by default
       name: config.name || 'RetryPolicy',
       maxAttempts: config.maxAttempts || DEFAULT_CONFIG.maxAttempts,
@@ -391,7 +395,6 @@ export class RetryPolicy {
       const attemptStartTime = new Date();
       let attemptEndTime: Date | null = null;
       let error: Error | null = null;
-      let success = false;
       let result: T | undefined;
 
       try {
@@ -403,7 +406,6 @@ export class RetryPolicy {
         }
 
         attemptEndTime = new Date();
-        success = true;
 
         // Record successful attempt
         const attemptInfo: RetryAttempt = {
@@ -465,16 +467,13 @@ export class RetryPolicy {
 
         // Check if we should retry
         const willRetry = attempt < this.config.maxAttempts && this.config.retryCondition(error, attempt);
-        const finalAttempt = !willRetry;
 
         if (willRetry) {
           // Calculate delay for next attempt
           const delay = this.config.delayFunction(
             attempt,
             this.config.baseDelay,
-            this.config.maxDelay,
-            this.config.backoffMultiplier,
-            this.config.enableJitter
+            this.config.maxDelay
           );
 
           attemptInfo.delay = delay;
@@ -620,7 +619,11 @@ export class RetryPolicy {
    * Get configuration
    */
   getConfig(): Required<RetryConfig> {
-    return { ...this.config };
+    return {
+      ...this.config,
+      logger: this.logger,
+      metrics: this.metrics
+    };
   }
 
   /**
@@ -699,7 +702,7 @@ export class RetryPolicyRegistry {
     let policy = this.policies.get(name);
 
     if (!policy) {
-      policy = new RetryPolicy({ ...config, name });
+      policy = new RetryPolicy({ ...(config || {}), name });
       this.policies.set(name, policy);
     }
 
@@ -760,4 +763,10 @@ export const defaultRetryPolicyRegistry = new RetryPolicyRegistry();
 // Register default policies
 defaultRetryPolicyRegistry.register('database', DATABASE_RETRY_CONFIG);
 defaultRetryPolicyRegistry.register('api', API_RETRY_CONFIG);
-defaultRetryPolicyRegistry.register('default', {});
+defaultRetryPolicyRegistry.register('default', {
+  maxAttempts: 3,
+  baseDelay: 100,
+  maxDelay: 5000,
+  backoffMultiplier: 2,
+  enableJitter: true
+});

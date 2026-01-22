@@ -152,24 +152,24 @@ export class SnowflakeConnector extends BaseConnector {
         }
       }
 
-      const executeOptions: any = {
-        sqlText: finalSql,
-        complete: (err: any, _stmt: any, rows: any[]) => {
-          if (err) {
-            reject(new Error(`Query execution failed: ${err.message}`));
-          } else {
-            resolve(rows || []);
-          }
-        }
-      };
-
-      // Add bind parameters if any exist
-      if (parameters.length > 0) {
-        executeOptions.binds = parameters;
-      }
-
       const result = await this.executeWithTimeout(
         () => new Promise<any[]>((resolve, reject) => {
+          const executeOptions: any = {
+            sqlText: finalSql,
+            complete: (err: any, _stmt: any, rows: any[]) => {
+              if (err) {
+                reject(new Error(`Query execution failed: ${err.message}`));
+              } else {
+                resolve(rows || []);
+              }
+            }
+          };
+
+          // Add bind parameters if any exist
+          if (parameters.length > 0) {
+            executeOptions.binds = parameters;
+          }
+
           this.connection!.execute(executeOptions);
         }),
         this.queryTimeout

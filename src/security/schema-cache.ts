@@ -178,7 +178,6 @@ export class SchemaCache {
   private readonly cache = new Map<CacheKey, CacheEntry>();
   private readonly config: Required<SchemaCacheConfig>;
   private readonly logger: StructuredLogger;
-  private readonly metrics: MetricsCollector;
   private cleanupTimer?: NodeJS.Timeout;
   private stats: CacheStats;
 
@@ -191,7 +190,6 @@ export class SchemaCache {
     };
 
     this.logger = this.config.logger;
-    this.metrics = this.config.metrics;
 
     // Initialize statistics
     this.stats = {
@@ -517,7 +515,9 @@ export class SchemaCache {
    * Parse cache key back to database and table name
    */
   private parseKey(key: CacheKey): { database: string; tableName: string } {
-    const [database, tableName] = key.split(':', 2);
+    const parts = key.split(':', 2);
+    const database = parts[0] || '';
+    const tableName = parts[1] || '';
     return { database, tableName };
   }
 

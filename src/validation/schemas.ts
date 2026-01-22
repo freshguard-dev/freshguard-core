@@ -74,10 +74,10 @@ export const TableNameSchema = z.string()
   .refine((name) => {
     // Check each part of schema.table notation against reserved keywords
     const parts = name.split('.');
-    return !parts.some(part => SQL_RESERVED_KEYWORDS.includes(part.toUpperCase()));
-  }, (name) => ({
-    message: `Table name "${name}" contains reserved SQL keywords`
-  }))
+    return !parts.some(part => (SQL_RESERVED_KEYWORDS as readonly string[]).includes(part.toUpperCase()));
+  }, {
+    message: "Table name contains reserved SQL keywords"
+  })
   .refine((name) => {
     // Additional security check - ensure no dangerous patterns
     return !(/[;\/\*\x00-\x1F\x7F]|--/.exec(name));
@@ -89,10 +89,10 @@ export const TableNameSchema = z.string()
  */
 export const ColumnNameSchema = BaseIdentifierSchema
   .refine((name) => {
-    return !SQL_RESERVED_KEYWORDS.includes(name.toUpperCase());
-  }, (name) => ({
-    message: `Column name "${name}" is a reserved SQL keyword`
-  }));
+    return !(SQL_RESERVED_KEYWORDS as readonly string[]).includes(name.toUpperCase());
+  }, {
+    message: "Column name is a reserved SQL keyword"
+  });
 
 /**
  * Schema for validating database identifiers (generic)
@@ -191,7 +191,7 @@ export const DatabaseNameSchema = z.string()
   .max(64, 'Database name too long (max 64 characters)')
   .regex(/^[a-zA-Z0-9_\-]+$/, 'Database name contains invalid characters (only alphanumeric, underscore, and hyphen allowed)')
   .refine((name) => {
-    return !SQL_RESERVED_KEYWORDS.includes(name.toUpperCase());
+    return !(SQL_RESERVED_KEYWORDS as readonly string[]).includes(name.toUpperCase());
   }, 'Database name cannot be a reserved SQL keyword');
 
 /**

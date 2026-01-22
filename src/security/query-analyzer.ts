@@ -260,7 +260,7 @@ class SimpleSQLParser {
     // Check for LIMIT
     const limitMatch = /\blimit\s+(\d+)/.exec(normalizedSql);
     const hasLimit = !!limitMatch;
-    const limitValue = limitMatch ? parseInt(limitMatch[1], 10) : undefined;
+    const limitValue = limitMatch?.[1] ? parseInt(limitMatch[1], 10) : undefined;
 
     // Estimate result set size (simplified)
     const estimatedResultSize = this.estimateResultSize(
@@ -412,7 +412,7 @@ export class QueryComplexityAnalyzer {
    */
   private calculateComplexityScore(
     details: QueryAnalysisDetails,
-    tableMetadata: TableMetadata[]
+    _tableMetadata: TableMetadata[]
   ): number {
     let score = 0;
 

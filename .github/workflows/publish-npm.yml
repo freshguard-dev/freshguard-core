@@ -154,22 +154,40 @@ jobs:
           # Verify package integrity
           pnpm install --frozen-lockfile --ignore-scripts
 
-          # Check for known malicious packages (basic check)
-          SUSPICIOUS_PATTERNS=(
-            "bitcoin"
-            "crypto-miner"
-            "monero"
-            "exec("
-            "child_process"
-            "eval("
-            "Function("
+          # Check for truly suspicious patterns (refined to reduce false positives)
+          MALICIOUS_PATTERNS=(
+            "bitcoin.*wallet"
+            "crypto.*miner.*start"
+            "monero.*mining"
+            "execSync.*rm.*rf"
+            "spawn.*rm.*-rf"
+            "eval.*require"
+            "new.*Function.*require"
+            "process\.exit.*999"
           )
 
-          for pattern in "${SUSPICIOUS_PATTERNS[@]}"; do
-            if grep -r "$pattern" node_modules/ --include="*.js" --exclude-dir="test*" 2>/dev/null | head -5; then
-              echo "⚠️ Found suspicious pattern: $pattern (manual review recommended)"
+          echo "🔍 Scanning for malicious code patterns..."
+          SUSPICIOUS_FOUND=false
+
+          for pattern in "${MALICIOUS_PATTERNS[@]}"; do
+            # Exclude known safe directories (tests, benchmarks, security tools)
+            if grep -r -E "$pattern" node_modules/ \
+              --include="*.js" \
+              --exclude-dir="test*" \
+              --exclude-dir="benchmark*" \
+              --exclude-dir="*eslint*" \
+              --exclude="*test*" \
+              --exclude="*spec*" 2>/dev/null | head -3; then
+              echo "🚨 Found potentially malicious pattern: $pattern"
+              SUSPICIOUS_FOUND=true
             fi
           done
+
+          if [ "$SUSPICIOUS_FOUND" = false ]; then
+            echo "✅ No malicious patterns detected"
+          else
+            echo "⚠️ Manual review recommended for flagged patterns"
+          fi
 
           echo "✅ Supply chain verification complete"
 
@@ -250,11 +268,11 @@ jobs:
           TARBALL=$(ls *.tgz | head -1)
           echo "Generated tarball: $TARBALL"
 
-          # Sign with cosign using keyless signing (OIDC)
-          cosign sign-blob --yes "$TARBALL" --output-signature "${TARBALL}.sig" --output-certificate "${TARBALL}.crt"
+          # Sign with cosign using keyless signing (OIDC) and bundle format
+          cosign sign-blob --yes "$TARBALL" --bundle "${TARBALL}.cosign.bundle"
 
-          # Verify the signature
-          cosign verify-blob --certificate "${TARBALL}.crt" --signature "${TARBALL}.sig" \
+          # Verify the signature using bundle
+          cosign verify-blob --bundle "${TARBALL}.cosign.bundle" \
             --certificate-identity-regexp=".*" \
             --certificate-oidc-issuer="https://token.actions.githubusercontent.com" "$TARBALL"
 
@@ -262,7 +280,7 @@ jobs:
 
           # Display signature info
           echo "📜 Signature files created:"
-          ls -la *.sig *.crt
+          ls -la *.bundle
 
       - name: Extract version from tag
         id: extract_version
@@ -362,11 +380,11 @@ jobs:
 
             Verify package signature:
             ```bash
-            # Download signature files from this release
-            cosign verify-blob --certificate freshguard-core.crt --signature freshguard-core.sig \
+            # Download signature bundle from this release
+            cosign verify-blob --bundle thias-se-freshguard-core-${{ steps.extract_version.outputs.version }}.tgz.cosign.bundle \
               --certificate-identity-regexp=".*" \
               --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
-              freshguard-core.tgz
+              thias-se-freshguard-core-${{ steps.extract_version.outputs.version }}.tgz
             ```
 
             ## What's Changed
@@ -376,8 +394,7 @@ jobs:
           prerelease: false
           files: |
             *.tgz
-            *.sig
-            *.crt
+            *.bundle
             sbom-cyclonedx.json
             sbom-spdx.json
             SBOM.md

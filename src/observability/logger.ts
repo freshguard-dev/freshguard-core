@@ -291,22 +291,30 @@ export class StructuredLogger {
 
     // Enable pretty printing for development
     if (this.config.prettyPrint) {
-      try {
-        pinoConfig.transport = {
-          target: 'pino-pretty',
-          options: {
-            colorize: true,
-            ignore: 'pid,hostname',
-            translateTime: 'HH:MM:ss.l',
-          },
-        };
-      } catch {
-        // Fallback if pino-pretty is not available
-        console.warn('pino-pretty not available, using default formatting');
-      }
+      pinoConfig.transport = {
+        target: 'pino-pretty',
+        options: {
+          colorize: true,
+          ignore: 'pid,hostname',
+          translateTime: 'HH:MM:ss.l',
+        },
+      };
     }
 
-    this.logger = pino(pinoConfig);
+    try {
+      this.logger = pino(pinoConfig);
+    } catch (error) {
+      // Fallback if pino-pretty is not available
+      if (this.config.prettyPrint && error instanceof Error && error.message.includes('pino-pretty')) {
+        console.warn('pino-pretty not available, using default formatting');
+        // Remove the transport configuration and use default formatting
+        const fallbackConfig = { ...pinoConfig };
+        delete fallbackConfig.transport;
+        this.logger = pino(fallbackConfig);
+      } else {
+        throw error;
+      }
+    }
   }
 
   /**

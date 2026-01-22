@@ -39,8 +39,6 @@ export interface LogContext {
   duration?: number;
   /** Component generating the log */
   component?: string;
-  /** Workspace or tenant ID (will be sanitized) */
-  workspaceId?: string;
   /** Connection identifier */
   connectionId?: string;
   /** Query complexity score */

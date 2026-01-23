@@ -8,6 +8,8 @@ services:
       POSTGRES_DB: freshguard_test
     ports:
       - "5433:5432"  # Non-standard port to avoid conflicts
+    volumes:
+      - ./test-setup/init-postgres.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U test -d freshguard_test"]
       interval: 5s

@@ -373,9 +373,10 @@ export class MetadataStorageError extends FreshGuardError {
     message: string,
     operation?: string,
     context?: Record<string, unknown>,
-    originalError?: Error
+    originalError?: Error,
+    skipSanitization = false
   ) {
-    const sanitizedMessage = MetadataStorageError.sanitizeMetadataError(message, originalError);
+    const sanitizedMessage = skipSanitization ? message : MetadataStorageError.sanitizeMetadataError(message, originalError);
     super(sanitizedMessage, 'METADATA_STORAGE_FAILED', true);
     this.operation = operation;
     this.context = MetadataStorageError.sanitizeContext(context);
@@ -387,29 +388,44 @@ export class MetadataStorageError extends FreshGuardError {
   private static sanitizeMetadataError(message: string, _originalError?: Error): string {
     const lowerMessage = message.toLowerCase();
 
-    // Handle database-specific errors
+    // Handle lock errors first (more specific)
+    if (lowerMessage.includes('lock') || lowerMessage.includes('deadlock')) {
+      return 'Metadata storage lock contention';
+    }
+
+    // Handle permission errors
+    if (lowerMessage.includes('permission') ||
+        lowerMessage.includes('access denied') ||
+        lowerMessage.includes('privileges')) {
+      return 'Insufficient permissions for metadata storage operation';
+    }
+
+    // Handle table/relation existence errors
+    if ((lowerMessage.includes('table') &&
+         (lowerMessage.includes('not exist') || lowerMessage.includes('does not exist'))) ||
+        (lowerMessage.includes('relation') && lowerMessage.includes('not found'))) {
+      return 'Metadata storage not properly initialized';
+    }
+
+    // Handle specific connection errors that should stay as connection errors
+    if ((lowerMessage.includes('connection') || lowerMessage.includes('connect')) &&
+        (!lowerMessage.includes('timeout') || lowerMessage.includes('database'))) {
+      return 'Metadata storage connection failed';
+    }
+
+    // Handle timeout errors (including generic connection timeout)
+    if (lowerMessage.includes('timeout') || lowerMessage.includes('timed out')) {
+      return 'Metadata storage operation timeout';
+    }
+
+    // Handle remaining connection errors
     if (lowerMessage.includes('connection') || lowerMessage.includes('connect')) {
       return 'Metadata storage connection failed';
     }
 
-    if (lowerMessage.includes('permission') || lowerMessage.includes('access denied')) {
-      return 'Insufficient permissions for metadata storage operation';
-    }
-
-    if (lowerMessage.includes('table') && (lowerMessage.includes('not exist') || lowerMessage.includes('does not exist'))) {
-      return 'Metadata storage not properly initialized';
-    }
-
-    if (lowerMessage.includes('timeout')) {
-      return 'Metadata storage operation timeout';
-    }
-
+    // Handle disk space errors
     if (lowerMessage.includes('disk') || lowerMessage.includes('space')) {
       return 'Metadata storage disk space issue';
-    }
-
-    if (lowerMessage.includes('lock') || lowerMessage.includes('deadlock')) {
-      return 'Metadata storage lock contention';
     }
 
     // Generic sanitized message for unknown errors
@@ -426,7 +442,7 @@ export class MetadataStorageError extends FreshGuardError {
 
     Object.entries(context).forEach(([key, value]) => {
       // Include safe context keys
-      if (['operation', 'ruleId', 'table', 'recordCount', 'duration'].includes(key)) {
+      if (['operation', 'ruleId', 'table', 'recordCount', 'duration', 'phase', 'windowDays', 'version'].includes(key)) {
         sanitized[key] = value;
       }
       // Exclude potentially sensitive keys like connection strings, credentials, etc.
@@ -439,7 +455,9 @@ export class MetadataStorageError extends FreshGuardError {
     return new MetadataStorageError(
       reason ? `Initialization failed: ${reason}` : 'Metadata storage initialization failed',
       'initialize',
-      { phase: 'initialization' }
+      { phase: 'initialization' },
+      undefined,
+      true // Skip sanitization for static factory methods
     );
   }
 
@@ -448,7 +466,8 @@ export class MetadataStorageError extends FreshGuardError {
       'Failed to save check execution result',
       'saveExecution',
       { ruleId },
-      originalError
+      originalError,
+      true // Skip sanitization for static factory methods
     );
   }
 
@@ -457,7 +476,8 @@ export class MetadataStorageError extends FreshGuardError {
       'Failed to retrieve historical execution data',
       'getHistoricalData',
       { ruleId, windowDays: days },
-      originalError
+      originalError,
+      true // Skip sanitization for static factory methods
     );
   }
 
@@ -466,7 +486,8 @@ export class MetadataStorageError extends FreshGuardError {
       'Failed to save monitoring rule',
       'saveRule',
       { ruleId },
-      originalError
+      originalError,
+      true // Skip sanitization for static factory methods
     );
   }
 
@@ -475,7 +496,8 @@ export class MetadataStorageError extends FreshGuardError {
       'Failed to retrieve monitoring rule',
       'getRule',
       { ruleId },
-      originalError
+      originalError,
+      true // Skip sanitization for static factory methods
     );
   }
 
@@ -484,7 +506,8 @@ export class MetadataStorageError extends FreshGuardError {
       'Metadata storage connection failed',
       'connect',
       undefined,
-      originalError
+      originalError,
+      true // Skip sanitization for static factory methods
     );
   }
 
@@ -493,7 +516,8 @@ export class MetadataStorageError extends FreshGuardError {
       'Database migration failed',
       'migrate',
       { version },
-      originalError
+      originalError,
+      true // Skip sanitization for static factory methods
     );
   }
 }

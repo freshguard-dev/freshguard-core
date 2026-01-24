@@ -40,7 +40,7 @@ export async function checkVolumeAnomaly(
   rule: MonitoringRule,
   metadataStorage?: MetadataStorage
 ): Promise<CheckResult> {
-  const startTime = Date.now();
+  const startTime = process.hrtime.bigint();
 
   try {
     // Validate input parameters for security
@@ -73,7 +73,7 @@ export async function checkVolumeAnomaly(
     // Skip check if below minimum threshold
     if (currentRowCount < minimumRowCount) {
       const executedAt = new Date();
-      const executionDurationMs = Date.now() - startTime;
+      const executionDurationMs = Number(process.hrtime.bigint() - startTime) / 1000000;
 
       await saveExecutionResult(metadataStorage, {
         ruleId: rule.id,
@@ -117,7 +117,7 @@ export async function checkVolumeAnomaly(
     // If not enough historical data, return ok (can't determine baseline yet)
     if (baselineResult.dataPointsUsed < baselineConfig.minimumDataPoints) {
       const executedAt = new Date();
-      const executionDurationMs = Date.now() - startTime;
+      const executionDurationMs = Number(process.hrtime.bigint() - startTime) / 1000000;
 
       await saveExecutionResult(metadataStorage, {
         ruleId: rule.id,
@@ -142,7 +142,7 @@ export async function checkVolumeAnomaly(
     const isAnomaly = baselineResult.deviationPercent > deviationThresholdPercent;
     const status = isAnomaly ? 'alert' : 'ok';
     const executedAt = new Date();
-    const executionDurationMs = Date.now() - startTime;
+    const executionDurationMs = Number(process.hrtime.bigint() - startTime) / 1000000;
 
     // Save execution result to metadata storage
     await saveExecutionResult(metadataStorage, {
@@ -167,7 +167,7 @@ export async function checkVolumeAnomaly(
     // Use secure error handling to prevent information disclosure
     const userMessage = ErrorHandler.getUserMessage(error);
     const executedAt = new Date();
-    const executionDurationMs = Date.now() - startTime;
+    const executionDurationMs = Number(process.hrtime.bigint() - startTime) / 1000000;
 
     if (rule?.id) {
       await saveExecutionResult(metadataStorage, {
@@ -342,10 +342,11 @@ async function executeWithTimeout<T>(
  * Create secure check result with consistent structure
  */
 function createSecureCheckResult(status: CheckResult['status'], data: Partial<CheckResult>): CheckResult {
+
   return {
+    ...data,
     status,
     executedAt: data.executedAt || new Date(),
-    executionDurationMs: data.executionDurationMs,
-    ...data
+    executionDurationMs: data.executionDurationMs
   };
 }

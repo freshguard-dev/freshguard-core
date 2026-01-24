@@ -106,6 +106,7 @@ describe('BaselineCalculator', () => {
         const executions = [
           createExecution(100, 2),
           createExecution(100, 1),
+          createExecution(100, 0), // Add third execution to meet minimumDataPoints = 3
         ];
 
         const result = calculator.calculateBaseline(executions, 150);
@@ -328,6 +329,7 @@ describe('BaselineCalculator', () => {
       const executions = [
         createExecution(0, 2),
         createExecution(0, 1),
+        createExecution(0, 0), // Add third execution to meet minimumDataPoints = 3
       ];
 
       const result = calculator.calculateBaseline(executions, 100);

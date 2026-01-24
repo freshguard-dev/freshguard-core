@@ -9,7 +9,7 @@
  * - Error handling and security measures
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { checkVolumeAnomaly } from '../../src/monitor/volume.js';
 import type { MonitoringRule } from '../../src/types.js';
 import type { Database } from '../../src/db/index.js';
@@ -74,16 +74,17 @@ function createWeeklyPatternData(weeks: number = 2): CheckExecution[] {
       date.setDate(baseDate.getDate() + (week * 7) + day);
       date.setHours(10, 0, 0, 0);
 
-      // Different patterns for different days
+      // Different patterns for different days based on actual day of week (getDay())
       let rowCount: number;
-      switch (day) {
-        case 1: case 2: case 3: case 4: // Tue-Fri: High activity
+      const dayOfWeek = date.getDay(); // 0=Sunday, 1=Monday, 2=Tuesday, etc.
+      switch (dayOfWeek) {
+        case 2: case 3: case 4: case 5: // Tue-Fri: High activity
           rowCount = 1000;
           break;
-        case 0: // Monday: Medium activity
+        case 1: // Monday: Medium activity
           rowCount = 800;
           break;
-        case 5: case 6: // Sat-Sun: Low activity
+        case 0: case 6: // Sat-Sun: Low activity
           rowCount = 200;
           break;
         default:
@@ -233,6 +234,10 @@ describe('checkVolumeAnomaly', () => {
     });
 
     it('should handle seasonal adjustment', async () => {
+      // Set a fixed date to Tuesday (day 2) where 1000 is the expected pattern
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2024-01-23T10:00:00.000Z')); // Tuesday
+
       const rule: MonitoringRule = {
         ...baseRule,
         baselineConfig: {
@@ -248,6 +253,9 @@ describe('checkVolumeAnomaly', () => {
 
       expect(result.status).toBe('ok');
       // Seasonal adjustment should normalize day-of-week patterns
+
+      // Restore real timers
+      vi.useRealTimers();
     });
   });
 

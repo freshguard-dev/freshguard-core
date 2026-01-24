@@ -121,8 +121,8 @@ export class BaselineConfigResolver {
     const minimumRowCount = rule.minimumRowCount || 0;
 
     // Apply defaults for new configuration options
-    const minimumDataPoints = baselineConfig.minimumDataPoints || 3;
-    const timeoutSeconds = baselineConfig.timeoutSeconds || 30;
+    const minimumDataPoints = baselineConfig.minimumDataPoints ?? 3;
+    const timeoutSeconds = baselineConfig.timeoutSeconds ?? 30;
     const excludeWeekends = baselineConfig.excludeWeekends || false;
     const calculationMethod = baselineConfig.calculationMethod || 'mean';
     const trimmedMeanPercentile = baselineConfig.trimmedMeanPercentile || 10;

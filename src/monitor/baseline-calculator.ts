@@ -62,7 +62,7 @@ export class BaselineCalculator {
     // Filter data based on configuration
     const filteredData = this.filterData(dataPoints);
 
-    // Check if we have enough data
+    // Check if we have enough data for reliable baseline calculation
     if (filteredData.length < this.config.minimumDataPoints) {
       return {
         mean: currentRowCount,
@@ -74,23 +74,31 @@ export class BaselineCalculator {
     }
 
     try {
-      // Apply seasonal adjustment if enabled
+      // Apply seasonal adjustment if enabled and sufficient data
       const adjustedData = this.config.seasonalAdjustment
         ? this.applySeasonalAdjustment(filteredData)
         : filteredData;
 
+      // Check if seasonal adjustment was actually applied
+      const seasonalAdjustmentApplied = this.config.seasonalAdjustment && filteredData.length >= 14;
+
       // Calculate baseline using configured method
       const baseline = this.calculateStatistic(adjustedData);
 
+      // Seasonally adjust current row count if seasonal adjustment was applied
+      const adjustedCurrentRowCount = seasonalAdjustmentApplied
+        ? this.adjustCurrentValueForSeason(filteredData, currentRowCount)
+        : currentRowCount;
+
       // Calculate deviation percentage
-      const deviationPercent = this.calculateDeviation(baseline, currentRowCount);
+      const deviationPercent = this.calculateDeviation(baseline, adjustedCurrentRowCount);
 
       return {
         mean: Math.round(baseline),
         deviationPercent: Math.round(deviationPercent * 100) / 100,
         dataPointsUsed: adjustedData.length,
         calculationMethod: this.config.calculationMethod,
-        seasonalAdjusted: this.config.seasonalAdjustment,
+        seasonalAdjusted: seasonalAdjustmentApplied,
       };
     } catch (error) {
       // If calculation fails, return safe defaults
@@ -143,8 +151,10 @@ export class BaselineCalculator {
     const dayOfWeekStats = this.calculateDayOfWeekStats(dataPoints);
     const overallMean = this.calculateMean(dataPoints.map(p => p.rowCount));
 
+
+
     // Adjust each data point based on day-of-week factor
-    return dataPoints.map(point => {
+    const adjustedPoints = dataPoints.map(point => {
       const dayOfWeek = point.executedAt.getDay();
       const dayStats = dayOfWeekStats[dayOfWeek];
 
@@ -162,6 +172,39 @@ export class BaselineCalculator {
         rowCount: adjustedRowCount,
       };
     });
+
+
+    return adjustedPoints;
+  }
+
+  /**
+   * Adjust current value for seasonal patterns
+   */
+  private adjustCurrentValueForSeason(
+    dataPoints: HistoricalDataPoint[],
+    currentRowCount: number
+  ): number {
+    if (dataPoints.length < 14) {
+      return currentRowCount;
+    }
+
+    const dayOfWeekStats = this.calculateDayOfWeekStats(dataPoints);
+    const overallMean = this.calculateMean(dataPoints.map(p => p.rowCount));
+    const currentDayOfWeek = new Date().getDay();
+
+    const currentDayStats = dayOfWeekStats[currentDayOfWeek];
+
+    if (!currentDayStats || currentDayStats.count < 2) {
+      // Not enough data for today's day of week, no adjustment
+      return currentRowCount;
+    }
+
+    // Apply the same adjustment factor used for historical data
+    const dayFactor = overallMean / currentDayStats.mean;
+    const adjustedCurrentRowCount = currentRowCount * dayFactor;
+
+
+    return adjustedCurrentRowCount;
   }
 
   /**

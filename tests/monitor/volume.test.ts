@@ -12,14 +12,21 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { checkVolumeAnomaly } from '../../src/monitor/volume.js';
 import type { MonitoringRule } from '../../src/types.js';
-import type { Database } from '../../src/db/index.js';
+import type { Connector } from '../../src/types/connector.js';
 import type { MetadataStorage, CheckExecution } from '../../src/metadata/types.js';
 import { ConfigurationError, QueryError, TimeoutError } from '../../src/errors/index.js';
 
-// Mock database
-const mockDb = {
-  execute: vi.fn(),
-} as Database;
+// Mock connector
+const mockConnector: Connector = {
+  testConnection: vi.fn().mockResolvedValue(true),
+  listTables: vi.fn(),
+  getTableSchema: vi.fn(),
+  getRowCount: vi.fn(),
+  getMaxTimestamp: vi.fn(),
+  getMinTimestamp: vi.fn(),
+  getLastModified: vi.fn(),
+  close: vi.fn(),
+};
 
 // Mock metadata storage
 const mockMetadataStorage: MetadataStorage = {
@@ -106,7 +113,7 @@ function createWeeklyPatternData(weeks: number = 2): CheckExecution[] {
 describe('checkVolumeAnomaly', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockDb.execute.mockResolvedValue([{ row_count: '1000' }]);
+    mockConnector.getRowCount.mockResolvedValue(1000);
     mockMetadataStorage.getHistoricalData.mockResolvedValue([]);
     mockMetadataStorage.saveExecution.mockResolvedValue(undefined);
   });
@@ -132,7 +139,7 @@ describe('checkVolumeAnomaly', () => {
 
       mockMetadataStorage.getHistoricalData.mockResolvedValue(historicalData);
 
-      const result = await checkVolumeAnomaly(mockDb, rule, mockMetadataStorage);
+      const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
       expect(result.status).toBe('ok'); // 1000 is within 20% of ~1000
       expect(result.rowCount).toBe(1000);
@@ -154,7 +161,7 @@ describe('checkVolumeAnomaly', () => {
 
       mockMetadataStorage.getHistoricalData.mockResolvedValue(historicalData);
 
-      const result = await checkVolumeAnomaly(mockDb, rule, mockMetadataStorage);
+      const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
       expect(result.status).toBe('ok');
       expect(mockMetadataStorage.getHistoricalData).toHaveBeenCalledWith(rule.id, 30); // Default 30 days
@@ -184,7 +191,7 @@ describe('checkVolumeAnomaly', () => {
 
       mockMetadataStorage.getHistoricalData.mockResolvedValue(historicalData);
 
-      const result = await checkVolumeAnomaly(mockDb, rule, mockMetadataStorage);
+      const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
       expect(result.status).toBe('ok'); // Should use median calculation
       expect(mockMetadataStorage.getHistoricalData).toHaveBeenCalledWith(rule.id, 14); // Custom window
@@ -208,7 +215,7 @@ describe('checkVolumeAnomaly', () => {
 
       mockMetadataStorage.getHistoricalData.mockResolvedValue(historicalData);
 
-      const result = await checkVolumeAnomaly(mockDb, rule, mockMetadataStorage);
+      const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
       expect(mockMetadataStorage.getHistoricalData).toHaveBeenCalledWith(rule.id, 7); // Uses baseline config
       expect(result.status).toBe('ok');
@@ -226,7 +233,7 @@ describe('checkVolumeAnomaly', () => {
       const weeklyData = createWeeklyPatternData(2);
       mockMetadataStorage.getHistoricalData.mockResolvedValue(weeklyData);
 
-      const result = await checkVolumeAnomaly(mockDb, rule, mockMetadataStorage);
+      const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
       // Should exclude weekend data and use only weekday patterns
       expect(result.status).toBe('ok');
@@ -249,7 +256,7 @@ describe('checkVolumeAnomaly', () => {
       const weeklyData = createWeeklyPatternData(3); // Three weeks for seasonal adjustment
       mockMetadataStorage.getHistoricalData.mockResolvedValue(weeklyData);
 
-      const result = await checkVolumeAnomaly(mockDb, rule, mockMetadataStorage);
+      const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
       expect(result.status).toBe('ok');
       // Seasonal adjustment should normalize day-of-week patterns
@@ -275,7 +282,7 @@ describe('checkVolumeAnomaly', () => {
 
       mockMetadataStorage.getHistoricalData.mockResolvedValue(insufficientData);
 
-      const result = await checkVolumeAnomaly(mockDb, rule, mockMetadataStorage);
+      const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
       expect(result.status).toBe('ok');
       expect(result.baselineAverage).toBe(1000); // Current row count
@@ -295,7 +302,7 @@ describe('checkVolumeAnomaly', () => {
 
       mockMetadataStorage.getHistoricalData.mockResolvedValue(insufficientData);
 
-      const result = await checkVolumeAnomaly(mockDb, rule, mockMetadataStorage);
+      const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
       expect(result.status).toBe('ok');
       expect(result.baselineAverage).toBe(1000); // Falls back to current
@@ -315,10 +322,10 @@ describe('checkVolumeAnomaly', () => {
         createHistoricalExecution(1000, 3),
       ];
 
-      mockDb.execute.mockResolvedValue([{ row_count: '1300' }]); // 30% increase
+      mockConnector.getRowCount.mockResolvedValue(1300); // 30% increase
       mockMetadataStorage.getHistoricalData.mockResolvedValue(historicalData);
 
-      const result = await checkVolumeAnomaly(mockDb, rule, mockMetadataStorage);
+      const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
       expect(result.status).toBe('alert');
       expect(result.rowCount).toBe(1300);
@@ -338,10 +345,10 @@ describe('checkVolumeAnomaly', () => {
         createHistoricalExecution(1000, 3),
       ];
 
-      mockDb.execute.mockResolvedValue([{ row_count: '1200' }]); // 20% increase
+      mockConnector.getRowCount.mockResolvedValue(1200); // 20% increase
       mockMetadataStorage.getHistoricalData.mockResolvedValue(historicalData);
 
-      const result = await checkVolumeAnomaly(mockDb, rule, mockMetadataStorage);
+      const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
       expect(result.status).toBe('ok');
       expect(result.deviation).toBeCloseTo(20, 1);
@@ -355,9 +362,9 @@ describe('checkVolumeAnomaly', () => {
         minimumRowCount: 100,
       };
 
-      mockDb.execute.mockResolvedValue([{ row_count: '50' }]); // Below minimum
+      mockConnector.getRowCount.mockResolvedValue(50); // Below minimum
 
-      const result = await checkVolumeAnomaly(mockDb, rule, mockMetadataStorage);
+      const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
       expect(result.status).toBe('ok');
       expect(result.rowCount).toBe(50);
@@ -377,10 +384,10 @@ describe('checkVolumeAnomaly', () => {
         createHistoricalExecution(900, 1),
       ];
 
-      mockDb.execute.mockResolvedValue([{ row_count: '1050' }]); // Above minimum
+      mockConnector.getRowCount.mockResolvedValue(1050); // Above minimum
       mockMetadataStorage.getHistoricalData.mockResolvedValue(historicalData);
 
-      const result = await checkVolumeAnomaly(mockDb, rule, mockMetadataStorage);
+      const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
       expect(result.status).toBe('ok');
       expect(result.rowCount).toBe(1050);
@@ -399,9 +406,9 @@ describe('checkVolumeAnomaly', () => {
 
       // Mock a slow query that should timeout
       const slowPromise = new Promise(resolve => setTimeout(resolve, 15000));
-      mockDb.execute.mockReturnValue(slowPromise);
+      mockConnector.getRowCount.mockReturnValue(slowPromise);
 
-      const result = await checkVolumeAnomaly(mockDb, rule, mockMetadataStorage);
+      const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
       expect(result.status).toBe('failed');
       expect(result.error).toContain('timeout');
@@ -416,11 +423,11 @@ describe('checkVolumeAnomaly', () => {
       };
 
       // Mock a query that takes longer than timeout
-      mockDb.execute.mockImplementation(() =>
-        new Promise(resolve => setTimeout(() => resolve([{ row_count: '1000' }]), 2000))
+      mockConnector.getRowCount.mockImplementation(() =>
+        new Promise(resolve => setTimeout(() => resolve(1000), 2000))
       );
 
-      const result = await checkVolumeAnomaly(mockDb, rule, mockMetadataStorage);
+      const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
       expect(result.status).toBe('failed');
       expect(result.error).toContain('timeout');
@@ -434,7 +441,7 @@ describe('checkVolumeAnomaly', () => {
         ruleType: 'freshness' as const, // Wrong type for volume check
       };
 
-      const result = await checkVolumeAnomaly(mockDb, invalidRule, mockMetadataStorage);
+      const result = await checkVolumeAnomaly(mockConnector, invalidRule, mockMetadataStorage);
 
       expect(result.status).toBe('failed');
       expect(result.error).toContain('volume_anomaly');
@@ -443,9 +450,9 @@ describe('checkVolumeAnomaly', () => {
     it('should handle database connection errors', async () => {
       const rule = { ...baseRule };
 
-      mockDb.execute.mockRejectedValue(new Error('Connection lost'));
+      mockConnector.getRowCount.mockRejectedValue(new Error('Connection lost'));
 
-      const result = await checkVolumeAnomaly(mockDb, rule, mockMetadataStorage);
+      const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
       expect(result.status).toBe('failed');
       expect(result.error).not.toContain('Connection lost'); // Sanitized
@@ -463,7 +470,7 @@ describe('checkVolumeAnomaly', () => {
       mockMetadataStorage.getHistoricalData.mockRejectedValue(new Error('Storage failure'));
       // Should continue without historical data
 
-      const result = await checkVolumeAnomaly(mockDb, rule, mockMetadataStorage);
+      const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
       expect(result.status).toBe('ok'); // Should still complete
     });
@@ -480,7 +487,7 @@ describe('checkVolumeAnomaly', () => {
       mockMetadataStorage.getHistoricalData.mockResolvedValue(historicalData);
       mockMetadataStorage.saveExecution.mockRejectedValue(new Error('Save failed'));
 
-      const result = await checkVolumeAnomaly(mockDb, rule, mockMetadataStorage);
+      const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
       expect(result.status).toBe('ok'); // Should still return result
       expect(result.rowCount).toBe(1000);
@@ -502,7 +509,7 @@ describe('checkVolumeAnomaly', () => {
 
       mockMetadataStorage.getHistoricalData.mockResolvedValue(historicalData);
 
-      await checkVolumeAnomaly(mockDb, rule, mockMetadataStorage);
+      await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
       expect(mockMetadataStorage.saveExecution).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -529,10 +536,10 @@ describe('checkVolumeAnomaly', () => {
         createHistoricalExecution(1000, 1),
       ];
 
-      mockDb.execute.mockResolvedValue([{ row_count: '1300' }]); // Significant increase
+      mockConnector.getRowCount.mockResolvedValue(1300); // Significant increase
       mockMetadataStorage.getHistoricalData.mockResolvedValue(historicalData);
 
-      await checkVolumeAnomaly(mockDb, rule, mockMetadataStorage);
+      await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
       expect(mockMetadataStorage.saveExecution).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -546,9 +553,9 @@ describe('checkVolumeAnomaly', () => {
     it('should save execution result for error cases', async () => {
       const rule = { ...baseRule };
 
-      mockDb.execute.mockRejectedValue(new Error('Query failed'));
+      mockConnector.getRowCount.mockRejectedValue(new Error('Query failed'));
 
-      await checkVolumeAnomaly(mockDb, rule, mockMetadataStorage);
+      await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
       expect(mockMetadataStorage.saveExecution).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -572,7 +579,7 @@ describe('checkVolumeAnomaly', () => {
 
       mockMetadataStorage.getHistoricalData.mockResolvedValue(historicalData);
 
-      const result = await checkVolumeAnomaly(mockDb, rule, mockMetadataStorage);
+      const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
       expect(result.executionDurationMs).toBeGreaterThan(0);
       expect(typeof result.executionDurationMs).toBe('number');
@@ -582,7 +589,7 @@ describe('checkVolumeAnomaly', () => {
       const rule = { ...baseRule };
       const startTime = Date.now();
 
-      await checkVolumeAnomaly(mockDb, rule);
+      await checkVolumeAnomaly(mockConnector, rule);
 
       const duration = Date.now() - startTime;
       expect(duration).toBeLessThan(1000); // Should complete within 1 second

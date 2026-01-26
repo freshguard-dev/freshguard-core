@@ -14,7 +14,7 @@ import { describe, it, expect, beforeEach, afterEach, vi, MockedFunction } from 
 import { checkFreshness } from '../../src/monitor/freshness.js';
 import { DebugErrorFactory, mergeDebugConfig } from '../../src/errors/debug-factory.js';
 import type { MonitoringRule, FreshGuardConfig, DebugConfig } from '../../src/types.js';
-import type { Database } from '../../src/db/index.js';
+import type { Connector } from '../../src/types/connector.js';
 import type { MetadataStorage } from '../../src/metadata/interface.js';
 import { QueryError, ConnectionError } from '../../src/errors/index.js';
 
@@ -32,10 +32,17 @@ afterEach(() => {
   console.warn = originalConsole.warn;
 });
 
-// Mock database
-const mockDb = {
-  execute: vi.fn(),
-} as Database;
+// Mock connector
+const mockConnector: Connector = {
+  testConnection: vi.fn().mockResolvedValue(true),
+  listTables: vi.fn(),
+  getTableSchema: vi.fn(),
+  getRowCount: vi.fn(),
+  getMaxTimestamp: vi.fn(),
+  getMinTimestamp: vi.fn(),
+  getLastModified: vi.fn(),
+  close: vi.fn(),
+};
 
 // Mock metadata storage
 const mockMetadataStorage: MetadataStorage = {
@@ -76,7 +83,8 @@ const baseRule: MonitoringRule = {
 describe('Debug-Enhanced Freshness Monitoring', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (mockDb.execute as MockedFunction<any>).mockReset();
+    (mockConnector.getRowCount as MockedFunction<any>).mockReset();
+    (mockConnector.getMaxTimestamp as MockedFunction<any>).mockReset();
     (mockMetadataStorage.saveExecution as MockedFunction<any>).mockResolvedValue(undefined);
   });
 
@@ -146,11 +154,11 @@ describe('Debug-Enhanced Freshness Monitoring', () => {
       };
 
       // Mock database error
-      (mockDb.execute as MockedFunction<any>).mockRejectedValue(
+      (mockConnector.getRowCount as MockedFunction<any>).mockRejectedValue(
         new Error('relation "orders" does not exist')
       );
 
-      const result = await checkFreshness(mockDb, baseRule, mockMetadataStorage, config);
+      const result = await checkFreshness(mockConnector, baseRule, mockMetadataStorage, config);
 
       expect(result.status).toBe('failed');
       expect(result.debugId).toBeDefined();
@@ -163,16 +171,16 @@ describe('Debug-Enhanced Freshness Monitoring', () => {
       };
 
       // Mock database error to trigger debug path
-      (mockDb.execute as MockedFunction<any>).mockRejectedValue(
+      (mockConnector.getRowCount as MockedFunction<any>).mockRejectedValue(
         new Error('column "created_at" does not exist')
       );
 
-      const result = await checkFreshness(mockDb, baseRule, mockMetadataStorage, config);
+      const result = await checkFreshness(mockConnector, baseRule, mockMetadataStorage, config);
 
-      expect(result.debug?.query).toContain('SELECT');
-      expect(result.debug?.query).toContain('COUNT(*)');
-      expect(result.debug?.query).toContain('MAX(created_at)');
-      expect(result.debug?.query).toContain('FROM orders');
+      expect(result.debug?.query).toContain('connector.getRowCount');
+      expect(result.debug?.query).toContain('orders');
+      expect(result.debug?.query).toContain('connector.getMaxTimestamp');
+      expect(result.debug?.query).toContain('created_at');
     });
 
     it('should include raw error when exposeRawErrors is true', async () => {
@@ -182,9 +190,9 @@ describe('Debug-Enhanced Freshness Monitoring', () => {
 
       // Mock database error
       const originalError = new Error('column "created_at" does not exist');
-      (mockDb.execute as MockedFunction<any>).mockRejectedValue(originalError);
+      (mockConnector.getRowCount as MockedFunction<any>).mockRejectedValue(originalError);
 
-      const result = await checkFreshness(mockDb, baseRule, mockMetadataStorage, config);
+      const result = await checkFreshness(mockConnector, baseRule, mockMetadataStorage, config);
 
       expect(result.debug?.rawError).toBe('column "created_at" does not exist');
     });
@@ -195,11 +203,11 @@ describe('Debug-Enhanced Freshness Monitoring', () => {
       };
 
       // Mock database error
-      (mockDb.execute as MockedFunction<any>).mockRejectedValue(
+      (mockConnector.getRowCount as MockedFunction<any>).mockRejectedValue(
         new Error('password authentication failed for user "admin"')
       );
 
-      const result = await checkFreshness(mockDb, baseRule, mockMetadataStorage, config);
+      const result = await checkFreshness(mockConnector, baseRule, mockMetadataStorage, config);
 
       expect(result.debug?.rawError).toBeUndefined();
     });
@@ -210,11 +218,11 @@ describe('Debug-Enhanced Freshness Monitoring', () => {
       };
 
       // Mock database error
-      (mockDb.execute as MockedFunction<any>).mockRejectedValue(
+      (mockConnector.getRowCount as MockedFunction<any>).mockRejectedValue(
         new Error('some database error')
       );
 
-      const result = await checkFreshness(mockDb, baseRule, mockMetadataStorage, config);
+      const result = await checkFreshness(mockConnector, baseRule, mockMetadataStorage, config);
 
       expect(result.debug).toBeUndefined();
     });
@@ -227,11 +235,11 @@ describe('Debug-Enhanced Freshness Monitoring', () => {
       };
 
       // Mock table not found error
-      (mockDb.execute as MockedFunction<any>).mockRejectedValue(
+      (mockConnector.getRowCount as MockedFunction<any>).mockRejectedValue(
         new Error('relation "orders" does not exist')
       );
 
-      const result = await checkFreshness(mockDb, baseRule, mockMetadataStorage, config);
+      const result = await checkFreshness(mockConnector, baseRule, mockMetadataStorage, config);
 
       expect(result.debug?.suggestion).toContain("Table 'orders' does not exist");
       expect(result.debug?.suggestion).toContain('Verify table name and database schema');
@@ -243,11 +251,11 @@ describe('Debug-Enhanced Freshness Monitoring', () => {
       };
 
       // Mock column not found error
-      (mockDb.execute as MockedFunction<any>).mockRejectedValue(
+      (mockConnector.getRowCount as MockedFunction<any>).mockRejectedValue(
         new Error('column "created_at" does not exist')
       );
 
-      const result = await checkFreshness(mockDb, baseRule, mockMetadataStorage, config);
+      const result = await checkFreshness(mockConnector, baseRule, mockMetadataStorage, config);
 
       expect(result.debug?.suggestion).toContain("Column 'created_at' not found");
       expect(result.debug?.suggestion).toContain('DESCRIBE orders');
@@ -259,11 +267,11 @@ describe('Debug-Enhanced Freshness Monitoring', () => {
       };
 
       // Mock permission denied error
-      (mockDb.execute as MockedFunction<any>).mockRejectedValue(
+      (mockConnector.getRowCount as MockedFunction<any>).mockRejectedValue(
         new Error('permission denied for table orders')
       );
 
-      const result = await checkFreshness(mockDb, baseRule, mockMetadataStorage, config);
+      const result = await checkFreshness(mockConnector, baseRule, mockMetadataStorage, config);
 
       expect(result.debug?.suggestion).toContain("Access denied to table 'orders'");
       expect(result.debug?.suggestion).toContain('GRANT SELECT ON orders');
@@ -275,11 +283,11 @@ describe('Debug-Enhanced Freshness Monitoring', () => {
       };
 
       // Mock syntax error
-      (mockDb.execute as MockedFunction<any>).mockRejectedValue(
+      (mockConnector.getRowCount as MockedFunction<any>).mockRejectedValue(
         new Error('syntax error at or near "SELECT"')
       );
 
-      const result = await checkFreshness(mockDb, baseRule, mockMetadataStorage, config);
+      const result = await checkFreshness(mockConnector, baseRule, mockMetadataStorage, config);
 
       expect(result.debug?.suggestion).toContain('SQL syntax error');
       expect(result.debug?.suggestion).toContain('special characters');
@@ -298,11 +306,11 @@ describe('Debug-Enhanced Freshness Monitoring', () => {
         .mockReturnValueOnce(150); // End time
 
       // Mock database error
-      (mockDb.execute as MockedFunction<any>).mockRejectedValue(
+      (mockConnector.getRowCount as MockedFunction<any>).mockRejectedValue(
         new Error('some error')
       );
 
-      const result = await checkFreshness(mockDb, baseRule, mockMetadataStorage, config);
+      const result = await checkFreshness(mockConnector, baseRule, mockMetadataStorage, config);
 
       expect(result.debug?.duration).toBe(50); // 150 - 100
     });
@@ -313,11 +321,11 @@ describe('Debug-Enhanced Freshness Monitoring', () => {
       };
 
       // Mock database error
-      (mockDb.execute as MockedFunction<any>).mockRejectedValue(
+      (mockConnector.getRowCount as MockedFunction<any>).mockRejectedValue(
         new Error('some error')
       );
 
-      const result = await checkFreshness(mockDb, baseRule, mockMetadataStorage, config);
+      const result = await checkFreshness(mockConnector, baseRule, mockMetadataStorage, config);
 
       expect(result.debug?.context?.table).toBe('orders');
       expect(result.debug?.context?.column).toBe('created_at');
@@ -331,12 +339,11 @@ describe('Debug-Enhanced Freshness Monitoring', () => {
         debug: { enabled: true, exposeQueries: true }
       };
 
-      // Mock successful query
-      (mockDb.execute as MockedFunction<any>).mockResolvedValue([
-        { row_count: '100', last_update: new Date() }
-      ]);
+      // Mock successful connector calls
+      (mockConnector.getRowCount as MockedFunction<any>).mockResolvedValue(100);
+      (mockConnector.getMaxTimestamp as MockedFunction<any>).mockResolvedValue(new Date());
 
-      await checkFreshness(mockDb, baseRule, mockMetadataStorage, config);
+      await checkFreshness(mockConnector, baseRule, mockMetadataStorage, config);
 
       // Check that console.log was called with debug information
       const calls = (console.log as MockedFunction<any>).mock.calls;
@@ -357,17 +364,17 @@ describe('Debug-Enhanced Freshness Monitoring', () => {
       };
 
       // Mock database error to trigger logging
-      (mockDb.execute as MockedFunction<any>).mockRejectedValue(
+      (mockConnector.getRowCount as MockedFunction<any>).mockRejectedValue(
         new Error('some error')
       );
 
-      await checkFreshness(mockDb, baseRule, mockMetadataStorage, config);
+      await checkFreshness(mockConnector, baseRule, mockMetadataStorage, config);
 
-      // Should have debug logs but without actual SQL
+      // Should have debug logs but without actual connector operations
       expect(console.log).toHaveBeenCalledWith(
         expect.stringContaining('[DEBUG]'),
         expect.objectContaining({
-          query: '[SQL hidden]'
+          operations: '[Connector operations hidden]'
         })
       );
     });
@@ -378,11 +385,11 @@ describe('Debug-Enhanced Freshness Monitoring', () => {
       };
 
       // Mock database error
-      (mockDb.execute as MockedFunction<any>).mockRejectedValue(
+      (mockConnector.getRowCount as MockedFunction<any>).mockRejectedValue(
         new Error('connection refused')
       );
 
-      await checkFreshness(mockDb, baseRule, mockMetadataStorage, config);
+      await checkFreshness(mockConnector, baseRule, mockMetadataStorage, config);
 
       // Check that console.error was called with debug information
       const calls = (console.error as MockedFunction<any>).mock.calls;
@@ -400,12 +407,11 @@ describe('Debug-Enhanced Freshness Monitoring', () => {
 
   describe('Backward Compatibility', () => {
     it('should work without config parameter (production mode)', async () => {
-      // Mock successful query
-      (mockDb.execute as MockedFunction<any>).mockResolvedValue([
-        { row_count: '100', last_update: new Date() }
-      ]);
+      // Mock successful connector calls
+      (mockConnector.getRowCount as MockedFunction<any>).mockResolvedValue(100);
+      (mockConnector.getMaxTimestamp as MockedFunction<any>).mockResolvedValue(new Date());
 
-      const result = await checkFreshness(mockDb, baseRule, mockMetadataStorage);
+      const result = await checkFreshness(mockConnector, baseRule, mockMetadataStorage);
 
       expect(result.status).toBe('ok');
       expect(result.debug).toBeUndefined();
@@ -413,12 +419,11 @@ describe('Debug-Enhanced Freshness Monitoring', () => {
     });
 
     it('should work with empty config object', async () => {
-      // Mock successful query
-      (mockDb.execute as MockedFunction<any>).mockResolvedValue([
-        { row_count: '100', last_update: new Date() }
-      ]);
+      // Mock successful connector calls
+      (mockConnector.getRowCount as MockedFunction<any>).mockResolvedValue(100);
+      (mockConnector.getMaxTimestamp as MockedFunction<any>).mockResolvedValue(new Date());
 
-      const result = await checkFreshness(mockDb, baseRule, mockMetadataStorage, {});
+      const result = await checkFreshness(mockConnector, baseRule, mockMetadataStorage, {});
 
       expect(result.status).toBe('ok');
       expect(result.debug).toBeUndefined();
@@ -432,11 +437,11 @@ describe('Debug-Enhanced Freshness Monitoring', () => {
       };
 
       // Mock database error with sensitive information
-      (mockDb.execute as MockedFunction<any>).mockRejectedValue(
+      (mockConnector.getRowCount as MockedFunction<any>).mockRejectedValue(
         new Error('password authentication failed for user "admin" database "secret_db"')
       );
 
-      const result = await checkFreshness(mockDb, baseRule, mockMetadataStorage, config);
+      const result = await checkFreshness(mockConnector, baseRule, mockMetadataStorage, config);
 
       // Main error should be sanitized
       expect(result.error).not.toContain('admin');
@@ -457,7 +462,7 @@ describe('Debug-Enhanced Freshness Monitoring', () => {
       };
 
       // The validation error is caught and returned as a failed result
-      const result = await checkFreshness(mockDb, invalidRule, mockMetadataStorage, config);
+      const result = await checkFreshness(mockConnector, invalidRule, mockMetadataStorage, config);
 
       expect(result.status).toBe('failed');
       expect(result.error).toContain('Tolerance minutes must be between 1 and 10080');

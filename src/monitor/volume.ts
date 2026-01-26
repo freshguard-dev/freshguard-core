@@ -14,9 +14,8 @@
  */
 
 import type { CheckResult, MonitoringRule, FreshGuardConfig, DebugConfig } from '../types.js';
-import type { Database } from '../db/index.js';
+import type { Connector } from '../types/connector.js';
 import type { MetadataStorage } from '../metadata/interface.js';
-import { sql } from 'drizzle-orm';
 import { validateTableName } from '../validators/index.js';
 import {
   TimeoutError,
@@ -31,14 +30,14 @@ import { BaselineCalculator } from './baseline-calculator.js';
 /**
  * Check volume anomaly for a given rule with security validation
  *
- * @param db - Database connection
+ * @param connector - Database connector instance
  * @param rule - Monitoring rule configuration
  * @param metadataStorage - Metadata storage for historical data
  * @param config - Optional configuration including debug settings
  * @returns CheckResult with volume anomaly status and sanitized error messages
  */
 export async function checkVolumeAnomaly(
-  db: Database,
+  connector: Connector,
   rule: MonitoringRule,
   metadataStorage?: MetadataStorage,
   config?: FreshGuardConfig
@@ -80,7 +79,7 @@ export async function checkVolumeAnomaly(
 
     // Get current row count with timeout protection
     const currentRowCount = await executeWithTimeout(
-      () => getCurrentRowCount(db, rule.tableName, debugConfig, debugFactory),
+      () => getCurrentRowCount(connector, rule.tableName, debugConfig, debugFactory),
       config?.timeoutMs || timeoutMs,
       'Volume check row count query timeout'
     );
@@ -342,52 +341,38 @@ function validateVolumeParameters(
 }
 
 /**
- * Get current row count with error handling
+ * Get current row count using connector with error handling
  */
 async function getCurrentRowCount(
-  db: Database,
+  connector: Connector,
   tableName: string,
   debugConfig: DebugConfig,
   debugFactory: DebugErrorFactory
 ): Promise<number> {
   const startTime = performance.now();
 
+  const queryContext: QueryContext = {
+    sql: `connector.getRowCount('${tableName}')`,
+    params: [],
+    table: tableName,
+    operation: 'volume_count'
+  };
+
   try {
-    const countQuery = sql`SELECT COUNT(*) as row_count FROM ${sql.identifier(tableName)}`;
-    const queryString = `SELECT COUNT(*) as row_count FROM ${tableName}`;
-
-    const queryContext: QueryContext = {
-      sql: queryString,
-      params: [],
-      table: tableName,
-      operation: 'volume_count'
-    };
-
-    // Log query in debug mode
+    // Log connector operation in debug mode
     if (debugConfig.enabled) {
-      console.log(`[DEBUG] Executing volume count query:`, {
+      console.log(`[DEBUG] Executing volume count via connector:`, {
         table: tableName,
-        query: debugConfig.exposeQueries ? queryContext.sql : '[SQL hidden]'
+        operation: debugConfig.exposeQueries ? `getRowCount('${tableName}')` : '[Connector operation hidden]'
       });
     }
 
-    const countResult = await db.execute(countQuery);
+    const rowCount = await connector.getRowCount(tableName);
     queryContext.duration = performance.now() - startTime;
-
-    if (!countResult || countResult.length === 0) {
-      throw debugFactory.createQueryError(
-        'Row count query returned no results',
-        undefined,
-        queryContext
-      );
-    }
-
-    const row = countResult[0] as { row_count: string };
-    const rowCount = parseInt(row.row_count, 10);
 
     if (isNaN(rowCount) || rowCount < 0) {
       throw debugFactory.createQueryError(
-        'Invalid row count returned from query',
+        'Invalid row count returned from connector',
         undefined,
         queryContext
       );
@@ -404,17 +389,10 @@ async function getCurrentRowCount(
 
     return rowCount;
   } catch (error) {
-    const duration = performance.now() - startTime;
-    const queryContext: QueryContext = {
-      sql: `SELECT COUNT(*) as row_count FROM ${tableName}`,
-      params: [],
-      table: tableName,
-      operation: 'volume_count',
-      duration
-    };
+    queryContext.duration = performance.now() - startTime;
 
     throw debugFactory.createQueryError(
-      'Failed to get current row count',
+      'Failed to get current row count via connector',
       error instanceof Error ? error : undefined,
       queryContext
     );

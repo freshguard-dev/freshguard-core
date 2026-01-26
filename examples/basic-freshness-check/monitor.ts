@@ -19,7 +19,6 @@ import {
   checkFreshness,
   checkVolumeAnomaly,
   createMetadataStorage,
-  type Database,
   type MonitoringRule,
   type CheckResult,
   type MetadataStorage
@@ -99,7 +98,6 @@ async function main(): Promise<void> {
   console.log(`🕐 Started at: ${new Date().toISOString()}\n`);
 
   let connector: PostgresConnector;
-  let database: Database;
   let metadataStorage: MetadataStorage;
 
   try {
@@ -114,11 +112,8 @@ async function main(): Promise<void> {
 
     console.log('✅ Secure connection established\n');
 
-    // Create database instance for monitoring functions
-    console.log('🗄️  Creating database instance for monitoring...');
-    const connectionString = `postgresql://${dbConfig.username}:${dbConfig.password}@${dbConfig.host}:${dbConfig.port}/${dbConfig.database}`;
-    database = createDatabase(connectionString);
-    console.log('✅ Database instance created\n');
+    // Note: Monitoring functions now use the secure connector directly
+    // No separate database instance needed for monitoring operations
 
     // Create metadata storage for execution history
     console.log('📊 Creating metadata storage...');
@@ -139,10 +134,10 @@ async function main(): Promise<void> {
 
         if (rule.ruleType === 'freshness') {
           // Use secure freshness check with automatic query analysis
-          result = await checkFreshness(database, rule, metadataStorage);
+          result = await checkFreshness(connector, rule, metadataStorage);
         } else if (rule.ruleType === 'volume_anomaly') {
           // Use secure volume anomaly detection
-          result = await checkVolumeAnomaly(database, rule, metadataStorage);
+          result = await checkVolumeAnomaly(connector, rule, metadataStorage);
         } else {
           throw new Error(`Unknown rule type: ${rule.ruleType}`);
         }

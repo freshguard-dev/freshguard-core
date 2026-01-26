@@ -34,9 +34,17 @@ node your-app.js
 Pass debug configuration directly to monitoring functions:
 
 ```javascript
-import { checkFreshness } from '@freshguard/core';
+import { checkFreshness, PostgresConnector } from '@thias-se/freshguard-core';
 
-const result = await checkFreshness(db, rule, metadataStorage, {
+// Create connector
+const connector = new PostgresConnector({
+  host: process.env.DB_HOST!,
+  database: process.env.DB_NAME!,
+  username: process.env.DB_USER!,
+  password: process.env.DB_PASSWORD!,
+});
+
+const result = await checkFreshness(connector, rule, metadataStorage, {
   debug: {
     enabled: true,              // Enable debug mode
     exposeQueries: true,        // Show actual SQL queries
@@ -96,7 +104,7 @@ const safeDebugConfig = {
 #### Production Mode (Default)
 ```javascript
 // No debug config = production mode
-const result = await checkFreshness(db, rule, metadataStorage);
+const result = await checkFreshness(connector, rule, metadataStorage);
 // OR explicitly disable
 const prodConfig = {
   debug: {
@@ -307,7 +315,7 @@ process.env.NODE_ENV = 'development';
 // - raw error exposure
 // - debug-level logging
 
-const result = await checkFreshness(db, rule); // Debug enabled automatically
+const result = await checkFreshness(connector, rule); // Debug enabled automatically
 ```
 
 ### Staging Environment
@@ -334,7 +342,7 @@ process.env.NODE_ENV = 'production';
 // - Hides query details
 // - Uses minimal logging
 
-const result = await checkFreshness(db, rule); // Secure by default
+const result = await checkFreshness(connector, rule); // Secure by default
 ```
 
 ## Integration with Existing Code
@@ -344,7 +352,7 @@ const result = await checkFreshness(db, rule); // Secure by default
 #### Before (v0.6.x)
 ```javascript
 try {
-  const result = await checkFreshness(db, rule, metadataStorage);
+  const result = await checkFreshness(connector, rule, metadataStorage);
   if (result.status === 'failed') {
     console.log('Error:', result.error); // Generic sanitized message
   }
@@ -356,7 +364,7 @@ try {
 #### After (v0.7.x with Debug)
 ```javascript
 try {
-  const result = await checkFreshness(db, rule, metadataStorage, {
+  const result = await checkFreshness(connector, rule, metadataStorage, {
     debug: { enabled: process.env.NODE_ENV === 'development' }
   });
 
@@ -388,7 +396,7 @@ const config = {
   }
 };
 
-const result = await checkFreshness(db, rule, metadataStorage, config);
+const result = await checkFreshness(connector, rule, metadataStorage, config);
 
 if (result.status === 'failed') {
   // Always log the safe error
@@ -427,21 +435,26 @@ function createFreshGuardConfig() {
   };
 }
 
-const result = await checkFreshness(db, rule, metadata, createFreshGuardConfig());
+const result = await checkFreshness(connector, rule, metadata, createFreshGuardConfig());
 ```
 
 ## Testing with Debug Mode
 
 ### Unit Tests
 ```javascript
-import { checkFreshness } from '@freshguard/core';
+import { checkFreshness, PostgresConnector } from '@thias-se/freshguard-core';
 
 test('should provide debug information on failure', async () => {
   const config = {
     debug: { enabled: true, exposeQueries: true, exposeRawErrors: true }
   };
 
-  const result = await checkFreshness(mockDb, rule, metadata, config);
+  const mockConnector = {
+    getRowCount: jest.fn().mockResolvedValue(100),
+    getMaxTimestamp: jest.fn().mockResolvedValue(new Date()),
+  };
+
+  const result = await checkFreshness(mockConnector, rule, metadata, config);
 
   expect(result.debug.query).toContain('SELECT COUNT(*)');
   expect(result.debug.suggestion).toBeDefined();
@@ -453,11 +466,11 @@ test('should provide debug information on failure', async () => {
 ```javascript
 test('should work in both debug and production modes', async () => {
   // Test production mode
-  const prodResult = await checkFreshness(db, rule, metadata);
+  const prodResult = await checkFreshness(connector, rule, metadata);
   expect(prodResult.debug).toBeUndefined();
 
   // Test debug mode
-  const debugResult = await checkFreshness(db, rule, metadata, {
+  const debugResult = await checkFreshness(connector, rule, metadata, {
     debug: { enabled: true }
   });
 
@@ -539,10 +552,10 @@ const emergencyDebugConfig = {
    Ensure you're passing the config parameter:
    ```javascript
    // ❌ Wrong - missing config
-   await checkFreshness(db, rule, metadata);
+   await checkFreshness(connector, rule, metadata);
 
    // ✅ Correct - with config
-   await checkFreshness(db, rule, metadata, config);
+   await checkFreshness(connector, rule, metadata, config);
    ```
 
 ## Best Practices

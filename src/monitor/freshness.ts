@@ -13,9 +13,8 @@
  */
 
 import type { CheckResult, MonitoringRule, FreshGuardConfig, DebugConfig } from '../types.js';
-import type { Database } from '../db/index.js';
+import type { Connector } from '../types/connector.js';
 import type { MetadataStorage } from '../metadata/interface.js';
-import { sql } from 'drizzle-orm';
 import { validateTableName, validateColumnName } from '../validators/index.js';
 import {
   QueryError,
@@ -29,14 +28,14 @@ import type { QueryContext } from '../errors/debug-factory.js';
 /**
  * Check data freshness for a given rule with security validation
  *
- * @param db - Database connection
+ * @param connector - Database connector instance
  * @param rule - Monitoring rule configuration
  * @param metadataStorage - Optional metadata storage for execution history
  * @param config - Optional configuration including debug settings
  * @returns CheckResult with freshness status and sanitized error messages
  */
 export async function checkFreshness(
-  db: Database,
+  connector: Connector,
   rule: MonitoringRule,
   metadataStorage?: MetadataStorage,
   config?: FreshGuardConfig
@@ -71,9 +70,9 @@ export async function checkFreshness(
       throw new ConfigurationError('Tolerance minutes must be between 1 and 10080 (1 week)');
     }
 
-    // Execute query with timeout protection
+    // Execute freshness check with timeout protection
     const queryResult = await executeWithTimeout(
-      () => executeFreshnessQuery(db, rule.tableName, timestampColumn, debugConfig, debugFactory),
+      () => executeFreshnessQuery(connector, rule.tableName, timestampColumn, debugConfig, debugFactory),
       config?.timeoutMs || 30000, // Use config timeout or default
       'Freshness check query timeout'
     );
@@ -293,10 +292,10 @@ function validateFreshnessRule(rule: MonitoringRule): void {
 }
 
 /**
- * Execute freshness query with proper error handling
+ * Execute freshness check using connector methods with proper error handling
  */
 async function executeFreshnessQuery(
-  db: Database,
+  connector: Connector,
   tableName: string,
   timestampColumn: string,
   debugConfig: DebugConfig,
@@ -304,18 +303,8 @@ async function executeFreshnessQuery(
 ): Promise<{ rowCount: number; lastUpdate: Date | null; row: any }> {
   const startTime = performance.now();
 
-  // Build secure query using parameterized identifiers
-  const query = sql`
-    SELECT
-      COUNT(*) as row_count,
-      MAX(${sql.identifier(timestampColumn)}) as last_update
-    FROM ${sql.identifier(tableName)}
-  `;
-
-  const queryString = `SELECT COUNT(*) as row_count, MAX(${timestampColumn}) as last_update FROM ${tableName}`;
-
   const queryContext: QueryContext = {
-    sql: queryString,
+    sql: `connector.getRowCount('${tableName}') + connector.getMaxTimestamp('${tableName}', '${timestampColumn}')`,
     params: [],
     table: tableName,
     column: timestampColumn,
@@ -323,30 +312,39 @@ async function executeFreshnessQuery(
   };
 
   try {
-    // Log query in debug mode
+    // Log connector operations in debug mode
     if (debugConfig.enabled) {
-      console.log(`[DEBUG] Executing freshness query:`, {
+      console.log(`[DEBUG] Executing freshness check via connector:`, {
         table: tableName,
         column: timestampColumn,
-        query: debugConfig.exposeQueries ? queryContext.sql : '[SQL hidden]'
+        operations: debugConfig.exposeQueries
+          ? `getRowCount('${tableName}'), getMaxTimestamp('${tableName}', '${timestampColumn}')`
+          : '[Connector operations hidden]'
       });
     }
 
-    const result = await db.execute(query);
-    const row = result[0] as { row_count: string; last_update: Date | null };
+    // Execute connector methods in parallel for better performance
+    const [rowCount, lastUpdate] = await Promise.all([
+      connector.getRowCount(tableName),
+      connector.getMaxTimestamp(tableName, timestampColumn)
+    ]);
 
     queryContext.duration = performance.now() - startTime;
 
-    if (!row) {
+    // Validate row count is a valid number
+    if (isNaN(rowCount) || rowCount < 0) {
       throw debugFactory.createQueryError(
-        'Query returned empty result set',
+        'Invalid row count returned from connector',
         undefined,
         queryContext
       );
     }
 
-    const rowCount = parseInt(row.row_count, 10);
-    const lastUpdate = row.last_update;
+    // Create mock row object for backwards compatibility with existing code
+    const row = {
+      row_count: rowCount.toString(),
+      last_update: lastUpdate
+    };
 
     return { rowCount, lastUpdate, row };
   } catch (error) {
@@ -354,7 +352,7 @@ async function executeFreshnessQuery(
 
     // Create enhanced error with debug context
     throw debugFactory.createQueryError(
-      'Failed to execute freshness query',
+      'Failed to execute freshness check via connector',
       error instanceof Error ? error : undefined,
       queryContext
     );

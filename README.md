@@ -119,13 +119,21 @@ FreshGuard tracks execution history for volume anomaly detection and monitoring 
 ### Quick Setup (Zero Configuration)
 
 ```typescript
-import { createMetadataStorage, checkVolumeAnomaly } from '@thias-se/freshguard-core';
+import { createMetadataStorage, checkVolumeAnomaly, PostgresConnector } from '@thias-se/freshguard-core';
+
+// Create secure connector
+const connector = new PostgresConnector({
+  host: process.env.DB_HOST!,
+  database: process.env.DB_NAME!,
+  username: process.env.DB_USER!,
+  password: process.env.DB_PASSWORD!,
+});
 
 // Automatic setup - creates ./freshguard-metadata.db
 const metadataStorage = await createMetadataStorage();
 
 // Use with monitoring functions
-const result = await checkVolumeAnomaly(database, rule, metadataStorage);
+const result = await checkVolumeAnomaly(connector, rule, metadataStorage);
 
 // Clean up
 await metadataStorage.close();

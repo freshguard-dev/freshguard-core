@@ -828,8 +828,9 @@ export abstract class BaseConnector implements Connector {
   }
 
   /**
-   * Test database connection
+   * Test database connection with optional debug configuration
    * Subclasses implement with database-specific connection test
+   * @param debugConfig Optional debug configuration for enhanced error reporting
    */
   abstract testConnection(debugConfig?: DebugConfig): Promise<boolean>;
 

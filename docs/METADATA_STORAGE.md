@@ -7,13 +7,21 @@ FreshGuard Core uses metadata storage to track execution history, which enables 
 By default, FreshGuard uses DuckDB for metadata storage with no configuration required:
 
 ```typescript
-import { createMetadataStorage, checkVolumeAnomaly } from '@thias-se/freshguard-core';
+import { createMetadataStorage, checkVolumeAnomaly, PostgresConnector } from '@thias-se/freshguard-core';
+
+// Create secure connector
+const connector = new PostgresConnector({
+  host: process.env.DB_HOST!,
+  database: process.env.DB_NAME!,
+  username: process.env.DB_USER!,
+  password: process.env.DB_PASSWORD!,
+});
 
 // Automatic setup - creates ./freshguard-metadata.db
 const metadataStorage = await createMetadataStorage();
 
 // Use with monitoring functions
-const result = await checkVolumeAnomaly(database, rule, metadataStorage);
+const result = await checkVolumeAnomaly(connector, rule, metadataStorage);
 
 // Clean up
 await metadataStorage.close();
@@ -170,14 +178,19 @@ const storage = await createMetadataStorage({
 ### Basic Monitoring
 ```typescript
 import {
-  createDatabase,
+  PostgresConnector,
   createMetadataStorage,
   checkFreshness,
   checkVolumeAnomaly
 } from '@thias-se/freshguard-core';
 
 // Setup
-const database = createDatabase('postgresql://...');
+const connector = new PostgresConnector({
+  host: process.env.DB_HOST!,
+  database: process.env.DB_NAME!,
+  username: process.env.DB_USER!,
+  password: process.env.DB_PASSWORD!,
+});
 const metadataStorage = await createMetadataStorage();
 
 const rule = {
@@ -195,8 +208,8 @@ const rule = {
 };
 
 // Run checks (metadata is automatically tracked)
-const freshnessResult = await checkFreshness(database, rule, metadataStorage);
-const volumeResult = await checkVolumeAnomaly(database, rule, metadataStorage);
+const freshnessResult = await checkFreshness(connector, rule, metadataStorage);
+const volumeResult = await checkVolumeAnomaly(connector, rule, metadataStorage);
 
 // Clean up
 await metadataStorage.close();
@@ -205,10 +218,21 @@ await metadataStorage.close();
 ### Production Monitoring Loop
 ```typescript
 import cron from 'node-cron';
+import { PostgresConnector } from '@thias-se/freshguard-core';
 
 let metadataStorage: MetadataStorage;
+let connector: PostgresConnector;
 
 async function initializeMonitoring() {
+  // Setup secure database connector
+  connector = new PostgresConnector({
+    host: process.env.DB_HOST!,
+    database: process.env.DB_NAME!,
+    username: process.env.DB_USER!,
+    password: process.env.DB_PASSWORD!,
+  });
+
+  // Setup metadata storage
   metadataStorage = await createMetadataStorage({
     type: 'postgresql',
     url: process.env.METADATA_DATABASE_URL
@@ -218,9 +242,9 @@ async function initializeMonitoring() {
 async function runMonitoringCheck(rule: MonitoringRule) {
   try {
     if (rule.ruleType === 'freshness') {
-      return await checkFreshness(database, rule, metadataStorage);
+      return await checkFreshness(connector, rule, metadataStorage);
     } else if (rule.ruleType === 'volume_anomaly') {
-      return await checkVolumeAnomaly(database, rule, metadataStorage);
+      return await checkVolumeAnomaly(connector, rule, metadataStorage);
     }
   } catch (error) {
     console.error(`Monitoring failed for rule ${rule.id}:`, error);

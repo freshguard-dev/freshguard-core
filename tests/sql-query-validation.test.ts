@@ -161,6 +161,24 @@ describe('SQL Query Generation Validation', () => {
       });
     });
 
+    it('should not block legitimate column names containing blocked keywords', () => {
+      const patterns = DEFAULT_SECURITY_CONFIG.allowedQueryPatterns;
+
+      // Test queries with column names that contain blocked keywords as substrings
+      const legitimateColumnNames = [
+        'SELECT COUNT(*) as count FROM orders',
+        'SELECT MAX(updated_at) as max_date FROM orders',           // "updated_at" contains "UPDATE"
+        'SELECT MIN(created_at) as min_date FROM logs',             // "created_at" contains "CREATE"
+        'SELECT MAX(deleted_flag) as max_flag FROM audit_logs',     // "deleted_flag" contains "DELETE"
+        'SELECT COUNT(*) FROM user_inserts_log',                   // table name contains "INSERT"
+      ];
+
+      legitimateColumnNames.forEach((query, index) => {
+        const isAllowed = patterns.some((pattern: RegExp) => pattern.test(query));
+        expect(isAllowed).toBe(true, `Query ${index + 1} with column containing blocked keyword should be allowed: ${query}`);
+      });
+    });
+
     it('should handle edge cases and variations', () => {
       const patterns = DEFAULT_SECURITY_CONFIG.allowedQueryPatterns;
 

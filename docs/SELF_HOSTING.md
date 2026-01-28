@@ -1,6 +1,6 @@
 # Self-Hosting FreshGuard Core
 
-Complete guide for self-hosting FreshGuard Core with enterprise-grade security and monitoring.
+Complete guide for self-hosting FreshGuard Core with high-grade security and monitoring.
 
 ## What You Get (Free, Self-Hosted)
 

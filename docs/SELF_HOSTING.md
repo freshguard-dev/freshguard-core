@@ -23,14 +23,14 @@ Guide for self-hosting FreshGuard Core in your own environment.
 ### Installation
 
 ```bash
-pnpm add @thias-se/freshguard-core
+pnpm add @freshguard/freshguard-core
 ```
 
 ### Basic Setup
 
 ```typescript
-import { PostgresConnector, checkFreshness } from '@thias-se/freshguard-core';
-import type { MonitoringRule } from '@thias-se/freshguard-core';
+import { PostgresConnector, checkFreshness } from '@freshguard/freshguard-core';
+import type { MonitoringRule } from '@freshguard/freshguard-core';
 
 // Basic configuration
 const connector = new PostgresConnector({
@@ -69,7 +69,7 @@ FreshGuard Core includes basic security features that are enabled by default.
 ### Connection Security
 
 ```typescript
-import { PostgresConnector } from '@thias-se/freshguard-core';
+import { PostgresConnector } from '@freshguard/freshguard-core';
 
 // Secure connection configuration
 const connector = new PostgresConnector({
@@ -181,7 +181,7 @@ LOG_LEVEL=info
 Create a basic health check for your monitoring:
 
 ```typescript
-import { PostgresConnector } from '@thias-se/freshguard-core';
+import { PostgresConnector } from '@freshguard/freshguard-core';
 
 const connector = new PostgresConnector({
   host: process.env.DB_HOST!,
@@ -236,8 +236,8 @@ import {
   checkFreshness,
   checkVolumeAnomaly,
   createMetadataStorage
-} from '@thias-se/freshguard-core';
-import type { MonitoringRule } from '@thias-se/freshguard-core';
+} from '@freshguard/freshguard-core';
+import type { MonitoringRule } from '@freshguard/freshguard-core';
 
 // Set up database connection
 const connector = new PostgresConnector({
@@ -338,8 +338,8 @@ if (result.status === 'alert') {
 
 - **Integration Guide**: [Implementation examples](./INTEGRATION_GUIDE.md)
 - **Security Guide**: [Security considerations](./SECURITY_FOR_SELF_HOSTERS.md)
-- **GitHub Issues**: [Report bugs or request features](https://github.com/thias-se/freshguard-core/issues)
-- **GitHub Discussions**: [Ask questions and share experiences](https://github.com/thias-se/freshguard-core/discussions)
+- **GitHub Issues**: [Report bugs or request features](https://github.com/freshguard-dev/freshguard-core/issues)
+- **GitHub Discussions**: [Ask questions and share experiences](https://github.com/freshguard-dev/freshguard-core/discussions)
 
 ## Next Steps
 

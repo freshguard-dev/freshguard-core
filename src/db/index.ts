@@ -1,6 +1,6 @@
 /**
  * Database connection and schema exports
- * @module @thias-se/freshguard-core/db
+ * @module @freshguard/freshguard-core/db
  */
 
 import { drizzle } from 'drizzle-orm/postgres-js';

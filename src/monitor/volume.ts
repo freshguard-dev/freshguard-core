@@ -9,7 +9,7 @@
  * - Historical data access controls
  * - Statistical validation and overflow protection
  *
- * @module @thias-se/freshguard-core/monitor/volume
+ * @module @freshguard/freshguard-core/monitor/volume
  * @license MIT
  */
 

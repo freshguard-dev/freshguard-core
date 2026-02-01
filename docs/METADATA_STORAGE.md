@@ -7,7 +7,7 @@ FreshGuard Core uses metadata storage to track execution history and schema base
 By default, FreshGuard uses DuckDB for metadata storage with no configuration required:
 
 ```typescript
-import { createMetadataStorage, checkVolumeAnomaly, PostgresConnector } from '@thias-se/freshguard-core';
+import { createMetadataStorage, checkVolumeAnomaly, PostgresConnector } from '@freshguard/freshguard-core';
 
 // Create secure connector
 const connector = new PostgresConnector({
@@ -183,7 +183,7 @@ import {
   checkFreshness,
   checkVolumeAnomaly,
   checkSchemaChanges
-} from '@thias-se/freshguard-core';
+} from '@freshguard/freshguard-core';
 
 // Setup
 const connector = new PostgresConnector({
@@ -246,7 +246,7 @@ await metadataStorage.close();
 ### Production Monitoring Loop
 ```typescript
 import cron from 'node-cron';
-import { PostgresConnector } from '@thias-se/freshguard-core';
+import { PostgresConnector } from '@freshguard/freshguard-core';
 
 let metadataStorage: MetadataStorage;
 let connector: PostgresConnector;

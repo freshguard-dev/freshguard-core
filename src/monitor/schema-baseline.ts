@@ -7,7 +7,7 @@
  * - Safe schema comparison algorithms
  * - Sanitized error messages
  *
- * @module @thias-se/freshguard-core/monitor/schema-baseline
+ * @module @freshguard/freshguard-core/monitor/schema-baseline
  * @license MIT
  */
 

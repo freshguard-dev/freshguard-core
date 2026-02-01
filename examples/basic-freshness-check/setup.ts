@@ -12,7 +12,7 @@
  * Updated for FreshGuard Core v0.5.2 with Phase 2 Security Implementation
  */
 
-import { PostgresConnector } from '@thias-se/freshguard-core';
+import { PostgresConnector } from '@freshguard/freshguard-core';
 import { config } from 'dotenv';
 
 // Load environment variables

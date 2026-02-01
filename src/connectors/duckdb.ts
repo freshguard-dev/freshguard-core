@@ -2,7 +2,7 @@
  * Secure DuckDB connector for FreshGuard Core
  * Extends BaseConnector with security built-in
  *
- * @module @thias-se/freshguard-core/connectors/duckdb
+ * @module @freshguard/freshguard-core/connectors/duckdb
  */
 
 import type { DuckDBConnection } from '@duckdb/node-api';

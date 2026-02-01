@@ -369,7 +369,7 @@ jobs:
           echo "" >> SBOM.md
           echo "**Generated:** $(date -u)" >> SBOM.md
           echo "**Version:** ${{ steps.extract_version.outputs.version }}" >> SBOM.md
-          echo "**Package:** @thias-se/freshguard-core" >> SBOM.md
+          echo "**Package:** @freshguard/freshguard-core" >> SBOM.md
           echo "" >> SBOM.md
           echo "## Security Information" >> SBOM.md
           echo "" >> SBOM.md
@@ -404,7 +404,7 @@ jobs:
             ## Installation
 
             ```bash
-            pnpm install @thias-se/freshguard-core@${{ steps.extract_version.outputs.version }}
+            pnpm install @freshguard/freshguard-core@${{ steps.extract_version.outputs.version }}
             ```
 
             ## Security Verification
@@ -412,10 +412,10 @@ jobs:
             Verify package signature:
             ```bash
             # Download signature bundle from this release
-            cosign verify-blob --bundle thias-se-freshguard-core-${{ steps.extract_version.outputs.version }}.tgz.cosign.bundle \
+            cosign verify-blob --bundle freshguard-freshguard-core-${{ steps.extract_version.outputs.version }}.tgz.cosign.bundle \
               --certificate-identity-regexp=".*" \
               --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
-              thias-se-freshguard-core-${{ steps.extract_version.outputs.version }}.tgz
+              freshguard-freshguard-core-${{ steps.extract_version.outputs.version }}.tgz
             ```
 
             ## What's Changed
@@ -455,10 +455,10 @@ jobs:
           echo '{"name":"test-install","version":"1.0.0","type":"module"}' > package.json
 
           echo "Testing published packages..."
-          pnpm install @thias-se/freshguard-core@${{ needs.publish.outputs.version }}
+          pnpm install @freshguard/freshguard-core@${{ needs.publish.outputs.version }}
 
           node -e "
-            import('@thias-se/freshguard-core').then(({ checkFreshness, createDatabase, DataSourceType }) => {
+            import('@freshguard/freshguard-core').then(({ checkFreshness, createDatabase, DataSourceType }) => {
               console.log('✅ Published package works correctly');
               console.log('✅ checkFreshness:', typeof checkFreshness);
               console.log('✅ createDatabase:', typeof createDatabase);

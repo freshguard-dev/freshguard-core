@@ -24,7 +24,7 @@ import {
   type CheckResult,
   type MetadataStorage
   } from '../../dist';
-//} from '@thias-se/freshguard-core';
+//} from '@freshguard/freshguard-core';
 import { config } from 'dotenv';
 
 // Load environment variables
@@ -378,7 +378,7 @@ FRESHGUARD_ENABLE_QUERY_ANALYSIS=true
   console.log('2. Secure Scheduling:');
   console.log(`
 import cron from 'node-cron';
-import { PostgresConnector } from '@thias-se/freshguard-core';
+import { PostgresConnector } from '@freshguard/freshguard-core';
 
 // Production security config
 const prodConfig = {

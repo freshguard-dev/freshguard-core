@@ -34,7 +34,7 @@ node your-app.js
 Pass debug configuration directly to monitoring functions:
 
 ```javascript
-import { checkFreshness, PostgresConnector } from '@thias-se/freshguard-core';
+import { checkFreshness, PostgresConnector } from '@freshguard/freshguard-core';
 
 // Create connector
 const connector = new PostgresConnector({
@@ -442,7 +442,7 @@ const result = await checkFreshness(connector, rule, metadata, createFreshGuardC
 
 ### Unit Tests
 ```javascript
-import { checkFreshness, PostgresConnector } from '@thias-se/freshguard-core';
+import { checkFreshness, PostgresConnector } from '@freshguard/freshguard-core';
 
 test('should provide debug information on failure', async () => {
   const config = {

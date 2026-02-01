@@ -1,6 +1,6 @@
 /**
  * Database migration utilities for FreshGuard Core
- * @module @thias-se/freshguard-core/db/migrate
+ * @module @freshguard/freshguard-core/db/migrate
  */
 
 import { readFile, readdir } from 'fs/promises';

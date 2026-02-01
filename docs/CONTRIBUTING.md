@@ -39,7 +39,7 @@ FreshGuard Core is an open-source MIT-licensed data pipeline freshness monitorin
 
 ```bash
 # Clone the repository
-git clone https://github.com/thias-se/freshguard-core.git
+git clone https://github.com/freshguard-dev/freshguard-core.git
 cd freshguard-core
 
 # Install dependencies

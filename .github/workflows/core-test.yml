@@ -85,7 +85,7 @@ jobs:
           pnpm install ${{ github.workspace }}
           node --input-type=module -e "
             try {
-              const pkg = await import('@thias-se/freshguard-core');
+              const pkg = await import('@freshguard/freshguard-core');
               console.log('✅ Package can be imported successfully');
               console.log('Available exports:', Object.keys(pkg));
               process.exit(0);

@@ -2,7 +2,7 @@
  * Secure PostgreSQL connector for FreshGuard Core
  * Extends BaseConnector with security built-in
  *
- * @module @thias-se/freshguard-core/connectors/postgres
+ * @module @freshguard/freshguard-core/connectors/postgres
  */
 
 import postgres from 'postgres';

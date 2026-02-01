@@ -1,5 +1,5 @@
 {
-  "name": "@thias-se/freshguard-core",
+  "name": "@freshguard/freshguard-core",
   "version": "0.11.2",
   "description": "Open source data freshness monitoring engine",
   "type": "module",
@@ -90,7 +90,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/thias-se/freshguard-core.git"
+    "url": "https://github.com/freshguard-dev/freshguard-core.git"
   },
   "publishConfig": {
     "access": "public"

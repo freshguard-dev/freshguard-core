@@ -1,6 +1,6 @@
 /**
  * Database connectors
- * @module @thias-se/freshguard-core/connectors
+ * @module @freshguard/freshguard-core/connectors
  */
 
 export { PostgresConnector } from './postgres.js';

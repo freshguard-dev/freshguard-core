@@ -2,7 +2,7 @@
  * Secure BigQuery connector for FreshGuard Core
  * Extends BaseConnector with security built-in
  *
- * @module @thias-se/freshguard-core/connectors/bigquery
+ * @module @freshguard/freshguard-core/connectors/bigquery
  */
 
 import { BigQuery } from '@google-cloud/bigquery';

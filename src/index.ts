@@ -1,10 +1,10 @@
 /**
  * FreshGuard Core - Open Source Data Pipeline Freshness Monitoring
  *
- * This is the public API for @thias-se/freshguard-core.
+ * This is the public API for @freshguard/freshguard-core.
  * Use this package to build self-hosted monitoring solutions.
  *
- * @module @thias-se/freshguard-core
+ * @module @freshguard/freshguard-core
  * @license MIT
  */
 

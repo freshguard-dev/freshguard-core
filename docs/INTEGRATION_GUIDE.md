@@ -7,13 +7,13 @@ Complete guide for integrating FreshGuard Core's security features into your pro
 ### Installation
 
 ```bash
-pnpm add @thias-se/freshguard-core
+pnpm add @freshguard/freshguard-core
 ```
 
 ### Basic Setup
 
 ```typescript
-import { PostgresConnector, SecurityConfig } from '@thias-se/freshguard-core';
+import { PostgresConnector, SecurityConfig } from '@freshguard/freshguard-core';
 
 const connector = new PostgresConnector({
   host: process.env.DB_HOST!,
@@ -38,7 +38,7 @@ console.log(`Orders: ${rowCount} rows, last update: ${lastUpdate}`);
 Monitor database schema changes to detect unexpected modifications:
 
 ```typescript
-import { checkSchemaChanges, createMetadataStorage } from '@thias-se/freshguard-core';
+import { checkSchemaChanges, createMetadataStorage } from '@freshguard/freshguard-core';
 
 // Create metadata storage for baseline persistence
 const metadataStorage = await createMetadataStorage({
@@ -175,7 +175,7 @@ const stagingSecurityConfig: Partial<SecurityConfig> = {
 Automatically analyzes and scores queries for security and performance risks.
 
 ```typescript
-import { createQueryAnalyzer } from '@thias-se/freshguard-core';
+import { createQueryAnalyzer } from '@freshguard/freshguard-core';
 
 const analyzer = createQueryAnalyzer({
   maxRiskScore: 70,              // Block queries above this risk score
@@ -199,7 +199,7 @@ console.log('Recommendations:', analysis.recommendations); // Optimization tips
 High-performance table metadata caching with automatic expiry.
 
 ```typescript
-import { createSchemaCache } from '@thias-se/freshguard-core';
+import { createSchemaCache } from '@freshguard/freshguard-core';
 
 const cache = createSchemaCache({
   maxEntries: 1000,           // Cache up to 1000 table schemas
@@ -223,7 +223,7 @@ console.log(`Cache hit ratio: ${stats.hitRatio}%`);
 Automatic failure protection and recovery.
 
 ```typescript
-import { createCircuitBreaker } from '@thias-se/freshguard-core';
+import { createCircuitBreaker } from '@freshguard/freshguard-core';
 
 const circuitBreaker = createCircuitBreaker({
   name: 'database-connection',
@@ -257,7 +257,7 @@ import {
   ValidationError,
   TimeoutError,
   CircuitBreakerOpenError
-} from '@thias-se/freshguard-core';
+} from '@freshguard/freshguard-core';
 
 try {
   const result = await connector.getRowCount('suspicious_table');
@@ -292,7 +292,7 @@ try {
 ### Structured Logging Setup
 
 ```typescript
-import { createDatabaseLogger } from '@thias-se/freshguard-core';
+import { createDatabaseLogger } from '@freshguard/freshguard-core';
 
 // Configure structured logging
 const logger = createDatabaseLogger('postgres', {
@@ -320,7 +320,7 @@ logger.info('Custom operation', {
 ### Metrics Collection
 
 ```typescript
-import { createComponentMetrics } from '@thias-se/freshguard-core';
+import { createComponentMetrics } from '@freshguard/freshguard-core';
 
 // Set up metrics collection
 const metrics = createComponentMetrics('freshguard-integration');
@@ -340,7 +340,7 @@ const prometheusMetrics = metrics.exportPrometheus();
 ### PostgreSQL
 
 ```typescript
-import { PostgresConnector } from '@thias-se/freshguard-core';
+import { PostgresConnector } from '@freshguard/freshguard-core';
 
 const postgres = new PostgresConnector({
   host: 'localhost',
@@ -361,7 +361,7 @@ const postgres = new PostgresConnector({
 ### BigQuery
 
 ```typescript
-import { BigQueryConnector } from '@thias-se/freshguard-core';
+import { BigQueryConnector } from '@freshguard/freshguard-core';
 
 const bigquery = new BigQueryConnector({
   projectId: process.env.GOOGLE_CLOUD_PROJECT,
@@ -379,7 +379,7 @@ const bigquery = new BigQueryConnector({
 ### Snowflake
 
 ```typescript
-import { SnowflakeConnector } from '@thias-se/freshguard-core';
+import { SnowflakeConnector } from '@freshguard/freshguard-core';
 
 const snowflake = new SnowflakeConnector({
   account: process.env.SNOWFLAKE_ACCOUNT,
@@ -399,7 +399,7 @@ const snowflake = new SnowflakeConnector({
 ### DuckDB (Embedded)
 
 ```typescript
-import { DuckDBConnector } from '@thias-se/freshguard-core';
+import { DuckDBConnector } from '@freshguard/freshguard-core';
 
 const duckdb = new DuckDBConnector({
   path: './data/analytics.duckdb',  // File path for embedded DuckDB
@@ -584,7 +584,7 @@ try {
 ### Unit Testing
 
 ```typescript
-import { PostgresConnector } from '@thias-se/freshguard-core';
+import { PostgresConnector } from '@freshguard/freshguard-core';
 
 describe('FreshGuard Integration', () => {
   let connector: PostgresConnector;
@@ -680,8 +680,8 @@ const connector = new PostgresConnector(config, {
 
 ## Support and Resources
 
-- **GitHub Issues**: [Report bugs or request features](https://github.com/thias-se/freshguard-core/issues)
-- **Documentation**: [Complete docs](https://github.com/thias-se/freshguard-core/docs)
+- **GitHub Issues**: [Report bugs or request features](https://github.com/freshguard-dev/freshguard-core/issues)
+- **Documentation**: [Complete docs](https://github.com/freshguard-dev/freshguard-core/docs)
 - **Security Guide**: [Self-hosting security guide](./SECURITY_FOR_SELF_HOSTERS.md)
 - **Contributing**: [Development guide](./CONTRIBUTING.md)
 

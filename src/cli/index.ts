@@ -11,7 +11,7 @@
  * - Safe file path handling
  * - Connection validation with timeouts
  *
- * @module @thias-se/freshguard-core/cli
+ * @module @freshguard/freshguard-core/cli
  */
 
 import { readFile, writeFile, existsSync, mkdirSync } from 'fs';

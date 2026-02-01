@@ -3,7 +3,7 @@
 **Open source data pipeline freshness monitoring engine for self-hosting.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![pnpm version](https://img.shields.io/npm/v/@thias-se/freshguard-core.svg)](https://www.npmjs.com/package/@thias-se/freshguard-core)
+[![pnpm version](https://img.shields.io/npm/v/@freshguard/freshguard-core.svg)](https://www.npmjs.com/package/@freshguard/freshguard-core)
 
 ## What is FreshGuard Core?
 
@@ -46,14 +46,14 @@ FreshGuard Core includes basic security protections for self-hosted deployments:
 ### 1. Install
 
 ```bash
-pnpm install @thias-se/freshguard-core
+pnpm install @freshguard/freshguard-core
 ```
 
 ### 2. Check Freshness
 
 ```typescript
-import { checkFreshness, PostgresConnector } from '@thias-se/freshguard-core';
-import type { MonitoringRule } from '@thias-se/freshguard-core';
+import { checkFreshness, PostgresConnector } from '@freshguard/freshguard-core';
+import type { MonitoringRule } from '@freshguard/freshguard-core';
 
 // Connect to your database
 const connector = new PostgresConnector({
@@ -91,7 +91,7 @@ if (result.status === 'alert') {
 ### 3. Check Volume Anomalies
 
 ```typescript
-import { checkVolumeAnomaly, PostgresConnector } from '@thias-se/freshguard-core';
+import { checkVolumeAnomaly, PostgresConnector } from '@freshguard/freshguard-core';
 
 const connector = new PostgresConnector({
   host: process.env.DB_HOST!,
@@ -111,7 +111,7 @@ if (result.status === 'alert') {
 ### 4. Monitor Schema Changes
 
 ```typescript
-import { checkSchemaChanges, PostgresConnector } from '@thias-se/freshguard-core';
+import { checkSchemaChanges, PostgresConnector } from '@freshguard/freshguard-core';
 
 const schemaRule: MonitoringRule = {
   id: 'users-schema',
@@ -177,7 +177,7 @@ FreshGuard tracks execution history for volume anomaly detection and monitoring 
 ### Quick Setup (Zero Configuration)
 
 ```typescript
-import { createMetadataStorage, checkVolumeAnomaly, PostgresConnector } from '@thias-se/freshguard-core';
+import { createMetadataStorage, checkVolumeAnomaly, PostgresConnector } from '@freshguard/freshguard-core';
 
 // Create database connector
 const connector = new PostgresConnector({
@@ -241,7 +241,7 @@ import {
   QueryError,
   ConfigurationError,
   MonitoringError
-} from '@thias-se/freshguard-core';
+} from '@freshguard/freshguard-core';
 
 try {
   const result = await checkFreshness(connector, rule);
@@ -360,7 +360,7 @@ Want these features? Check out **[FreshGuard Cloud](https://freshguard.dev)** - 
 
 FreshGuard uses an **Open Core** model:
 
-- **`@thias-se/freshguard-core`** (this package) - MIT licensed, open source monitoring engine
+- **`@freshguard/freshguard-core`** (this package) - MIT licensed, open source monitoring engine
 - **`freshguard`** - Proprietary multi-tenant SaaS (optional)
 
 You can self-host the core or use our managed cloud service.
@@ -374,7 +374,7 @@ We welcome contributions! See [CONTRIBUTING.md](docs/CONTRIBUTING.md).
 ### 📊 Database Connections
 
 ```typescript
-import { PostgresConnector, BigQueryConnector } from '@thias-se/freshguard-core';
+import { PostgresConnector, BigQueryConnector } from '@freshguard/freshguard-core';
 
 // PostgreSQL connection
 const pgConfig = {
@@ -400,8 +400,8 @@ const bigquery = new BigQueryConnector(bqConfig);
 ### 🔔 Custom Alerting
 
 ```typescript
-import { checkFreshness } from '@thias-se/freshguard-core';
-import { PostgresConnector } from '@thias-se/freshguard-core';
+import { checkFreshness } from '@freshguard/freshguard-core';
+import { PostgresConnector } from '@freshguard/freshguard-core';
 import { sendSlackAlert } from './alerts.js';
 
 // Database connection
@@ -426,8 +426,8 @@ if (result.status === 'alert') {
 ### 📅 Scheduled Monitoring
 
 ```typescript
-import { checkFreshness, checkVolumeAnomaly, checkSchemaChanges } from '@thias-se/freshguard-core';
-import { PostgresConnector } from '@thias-se/freshguard-core';
+import { checkFreshness, checkVolumeAnomaly, checkSchemaChanges } from '@freshguard/freshguard-core';
+import { PostgresConnector } from '@freshguard/freshguard-core';
 import cron from 'node-cron';
 
 const connector = new PostgresConnector({
@@ -445,7 +445,7 @@ cron.schedule('*/5 * * * *', async () => {
     console.log(`✅ Check result: ${result.status}`);
   } catch (error) {
     // Import error classes for specific handling
-    const { SecurityError, ConnectionError, TimeoutError } = require('@thias-se/freshguard-core');
+    const { SecurityError, ConnectionError, TimeoutError } = require('@freshguard/freshguard-core');
 
     if (error instanceof ConnectionError) {
       console.error(`🔌 Database connection failed: ${error.message}`);
@@ -521,7 +521,7 @@ import {
   QueryError,
   ConfigurationError,
   MonitoringError
-} from '@thias-se/freshguard-core';
+} from '@freshguard/freshguard-core';
 ```
 
 ### Error Classes

@@ -1,6 +1,6 @@
 /**
  * Monitoring logic exports
- * @module @thias-se/freshguard-core/monitor
+ * @module @freshguard/freshguard-core/monitor
  */
 
 export { checkFreshness } from './freshness.js';

@@ -2,7 +2,7 @@
  * Secure Snowflake connector for FreshGuard Core
  * Extends BaseConnector with security built-in
  *
- * @module @thias-se/freshguard-core/connectors/snowflake
+ * @module @freshguard/freshguard-core/connectors/snowflake
  */
 
 import * as snowflake from 'snowflake-sdk';

@@ -3,7 +3,7 @@
  * Extends BaseConnector with security built-in
  * Uses PostgreSQL wire protocol for compatibility
  *
- * @module @thias-se/freshguard-core/connectors/redshift
+ * @module @freshguard/freshguard-core/connectors/redshift
  */
 
 import postgres from 'postgres';

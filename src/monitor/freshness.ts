@@ -8,7 +8,7 @@
  * - Timeout protection against long-running queries
  * - Safe parameter validation
  *
- * @module @thias-se/freshguard-core/monitor/freshness
+ * @module @freshguard/freshguard-core/monitor/freshness
  * @license MIT
  */
 

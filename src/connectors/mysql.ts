@@ -2,7 +2,7 @@
  * Secure MySQL connector for FreshGuard Core
  * Extends BaseConnector with security built-in
  *
- * @module @thias-se/freshguard-core/connectors/mysql
+ * @module @freshguard/freshguard-core/connectors/mysql
  */
 
 import mysql from 'mysql2/promise';

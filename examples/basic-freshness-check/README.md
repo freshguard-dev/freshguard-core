@@ -209,7 +209,7 @@ basic-freshness-check/
 
 **setup.ts** - Secure connector setup and verification:
 ```typescript
-import { PostgresConnector } from '@thias-se/freshguard-core';
+import { PostgresConnector } from '@freshguard/freshguard-core';
 
 // Create secure connector with security features
 const connector = new PostgresConnector(dbConfig, {
@@ -229,7 +229,7 @@ import {
   PostgresConnector,
   checkFreshness,
   checkVolumeAnomaly
-} from '@thias-se/freshguard-core';
+} from '@freshguard/freshguard-core';
 
 // Security configuration for production
 const securityConfig = {
@@ -302,7 +302,7 @@ UPDATE orders SET updated_at = '2024-01-01 00:00:00';
 **Secure Scheduling:**
 ```typescript
 import cron from 'node-cron';
-import { PostgresConnector } from '@thias-se/freshguard-core';
+import { PostgresConnector } from '@freshguard/freshguard-core';
 
 // Production security configuration
 const prodSecurityConfig = {

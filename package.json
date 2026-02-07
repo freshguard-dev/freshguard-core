@@ -1,6 +1,6 @@
 {
   "name": "@freshguard/freshguard-core",
-  "version": "0.11.2",
+  "version": "0.11.3",
   "description": "Open source data freshness monitoring engine",
   "type": "module",
   "main": "./dist/index.js",
@@ -49,11 +49,11 @@
     "prepublishOnly": "pnpm build && pnpm test"
   },
   "dependencies": {
-    "@duckdb/node-api": "1.4.3-r.3",
+    "@duckdb/node-api": "1.4.4-r.1",
     "@google-cloud/bigquery": "^8.1.1",
     "drizzle-orm": "^0.45.1",
-    "mysql2": "^3.6.0",
-    "pg": "^8.17.2",
+    "mysql2": "^3.16.3",
+    "pg": "^8.18.0",
     "pino": "^10.3.0",
     "postgres": "^3.4.8",
     "snowflake-sdk": "^2.3.3",
@@ -70,9 +70,9 @@
     "@types/uuid": "^10.0.0",
     "@vitest/coverage-v8": "^4.0.18",
     "eslint": "^9.39.2",
-    "pnpm": "^10.28.2",
+    "pnpm": "^10.29.1",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.53.1",
+    "typescript-eslint": "^8.54.0",
     "vitest": "^4.0.18"
   },
   "optionalDependencies": {

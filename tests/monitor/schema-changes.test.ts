@@ -433,6 +433,7 @@ describe('Schema Change Monitoring', () => {
       const invalidRule = {
         ...testRule,
         schemaChangeConfig: {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           adaptationMode: 'invalid' as any,
         },
       };

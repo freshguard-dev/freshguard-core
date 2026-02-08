@@ -15,6 +15,7 @@ import type {
   SecurityConfig
 } from '../types/connector.js';
 import { DEFAULT_SECURITY_CONFIG } from '../types/connector.js';
+import type { QueryResultRow } from '../types/driver-results.js';
 
 import {
   SecurityError,
@@ -65,9 +66,9 @@ export abstract class BaseConnector implements Connector {
     // Merge security configuration with defaults
     const security = { ...DEFAULT_SECURITY_CONFIG, ...securityConfig };
 
-    this.connectionTimeout = config.timeout || security.connectionTimeout;
-    this.queryTimeout = config.queryTimeout || security.queryTimeout;
-    this.maxRows = config.maxRows || security.maxRows;
+    this.connectionTimeout = config.timeout ?? security.connectionTimeout;
+    this.queryTimeout = config.queryTimeout ?? security.queryTimeout;
+    this.maxRows = config.maxRows ?? security.maxRows;
     this.requireSSL = security.requireSSL;
     this.allowedPatterns = security.allowedQueryPatterns;
     this.blockedKeywords = security.blockedKeywords;
@@ -87,8 +88,8 @@ export abstract class BaseConnector implements Connector {
     // Initialize advanced security features
     this.enableQueryAnalysis = security.enableQueryAnalysis !== false;
     this.queryAnalyzer = createQueryAnalyzer({
-      maxRiskScore: security.maxQueryRiskScore || 70,
-      maxComplexityScore: security.maxQueryComplexityScore || 80,
+      maxRiskScore: security.maxQueryRiskScore ?? 70,
+      maxComplexityScore: security.maxQueryComplexityScore ?? 80,
       enableSecurityAnalysis: true,
       enablePerformanceAnalysis: true
     });
@@ -110,8 +111,8 @@ export abstract class BaseConnector implements Connector {
       queryTimeout: this.queryTimeout,
       maxRows: this.maxRows,
       enableQueryAnalysis: this.enableQueryAnalysis,
-      maxQueryRiskScore: security.maxQueryRiskScore || 70,
-      maxQueryComplexityScore: security.maxQueryComplexityScore || 80
+      maxQueryRiskScore: security.maxQueryRiskScore ?? 70,
+      maxQueryComplexityScore: security.maxQueryComplexityScore ?? 80
     });
   }
 
@@ -167,6 +168,7 @@ export abstract class BaseConnector implements Connector {
   private validateQueryTraditional(sql: string, normalizedSql: string): void {
     // Check for blocked keywords (whole word matching to avoid false positives)
     for (const keyword of this.blockedKeywords) {
+      // eslint-disable-next-line security/detect-non-literal-regexp
       const keywordRegex = new RegExp(`\\b${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
       if (keywordRegex.test(normalizedSql)) {
         this.logger.warn('Blocked SQL keyword detected', {
@@ -282,7 +284,7 @@ export abstract class BaseConnector implements Connector {
           const fresh = await this.getTableMetadataFresh(tableName);
           if (fresh) {
             metadata.push(fresh);
-            await this.cacheTableMetadata(fresh);
+            this.cacheTableMetadata(fresh);
           }
         }
       } catch (error) {
@@ -345,7 +347,7 @@ export abstract class BaseConnector implements Connector {
   /**
    * Cache table metadata
    */
-  private async cacheTableMetadata(metadata: TableMetadata): Promise<void> {
+  private cacheTableMetadata(metadata: TableMetadata): void {
     try {
       const cachedSchema: Omit<CachedTableSchema, 'cachedAt' | 'expiresAt'> = {
         tableName: metadata.name,
@@ -362,7 +364,7 @@ export abstract class BaseConnector implements Connector {
           name: idx.name,
           columns: idx.columns,
           unique: idx.unique,
-          type: idx.type || 'btree',
+          type: idx.type ?? 'btree',
           isPrimary: false, // Would need specific detection
           sizeBytes: undefined
         })),
@@ -373,7 +375,7 @@ export abstract class BaseConnector implements Connector {
             name: col.name,
             type: col.type,
             nullable: col.nullable,
-            indexed: col.indexed || false,
+            indexed: col.indexed ?? false,
             isPrimaryKey: false,
             estimatedCardinality: col.cardinality
           })),
@@ -381,7 +383,7 @@ export abstract class BaseConnector implements Connector {
             name: idx.name,
             columns: idx.columns,
             unique: idx.unique,
-            type: idx.type || 'btree',
+            type: idx.type ?? 'btree',
             isPrimary: false
           }))
         )
@@ -472,7 +474,7 @@ export abstract class BaseConnector implements Connector {
    */
   protected escapeIdentifier(identifier: string): string {
     // Only allow alphanumeric, underscore, and dot (for schema.table)
-    if (!/^[a-zA-Z0-9_\.]+$/.test(identifier)) {
+    if (!/^[a-zA-Z0-9_.]+$/.test(identifier)) {
       throw new SecurityError(`Invalid identifier: ${identifier}`);
     }
 
@@ -574,11 +576,11 @@ export abstract class BaseConnector implements Connector {
               this.queryTimeout
             );
 
-            if (!result || result.length === 0) {
+            if (!result || result.length === 0 || !result[0]) {
               throw new Error('No result returned');
             }
 
-            const count = parseInt(result[0].count || '0', 10);
+            const count = parseInt(String((result[0].count ?? '0') as string | number), 10);
             const finalCount = isNaN(count) ? 0 : count;
 
             if (this.enableDetailedLogging) {
@@ -633,7 +635,8 @@ export abstract class BaseConnector implements Connector {
               this.queryTimeout
             );
 
-            if (!result || result.length === 0 || !result[0].max_date) {
+            const maxDate = result?.[0]?.max_date;
+            if (!result || result.length === 0 || !maxDate) {
               if (this.enableDetailedLogging) {
                 this.logger.debug('No timestamp found', {
                   table,
@@ -645,8 +648,7 @@ export abstract class BaseConnector implements Connector {
               return null;
             }
 
-            const dateValue = result[0].max_date;
-            const finalDate = dateValue instanceof Date ? dateValue : new Date(dateValue);
+            const finalDate = maxDate instanceof Date ? maxDate : new Date(String(maxDate as string | number));
 
             if (this.enableDetailedLogging) {
               this.logger.debug('Retrieved max timestamp', {
@@ -692,7 +694,8 @@ export abstract class BaseConnector implements Connector {
         this.queryTimeout
       );
 
-      if (!result || result.length === 0 || !result[0].min_date) {
+      const minDate = result?.[0]?.min_date;
+      if (!result || result.length === 0 || !minDate) {
         if (this.enableDetailedLogging) {
           this.logger.debug('No minimum timestamp found', {
             table,
@@ -704,8 +707,7 @@ export abstract class BaseConnector implements Connector {
         return null;
       }
 
-      const dateValue = result[0].min_date;
-      const finalDate = dateValue instanceof Date ? dateValue : new Date(dateValue);
+      const finalDate = minDate instanceof Date ? minDate : new Date(String(minDate as string | number));
 
       if (this.enableDetailedLogging) {
         this.logger.debug('Retrieved min timestamp', {
@@ -727,7 +729,7 @@ export abstract class BaseConnector implements Connector {
    * Get last modified timestamp for a table
    * Implementation varies by database type
    */
-  async getLastModified(_table: string): Promise<Date | null> {
+  getLastModified(_table: string): Promise<Date | null> {
     // Default implementation - subclasses can override for database-specific methods
     // For most databases, this would be the same as getting max of a timestamp column
     // but specific implementations should override this
@@ -737,7 +739,7 @@ export abstract class BaseConnector implements Connector {
   /**
    * Validate that query results don't exceed max rows limit
    */
-  protected validateResultSize(results: any[]): void {
+  protected validateResultSize(results: QueryResultRow[]): void {
     if (results.length > this.maxRows) {
       this.logger.error('Query returned too many rows', {
         resultCount: results.length,
@@ -780,7 +782,7 @@ export abstract class BaseConnector implements Connector {
   /**
    * Get schema cache statistics
    */
-  protected getSchemaCacheStats(): any {
+  protected getSchemaCacheStats(): ReturnType<SchemaCache['getStats']> {
     return this.schemaCache.getStats();
   }
 
@@ -794,7 +796,7 @@ export abstract class BaseConnector implements Connector {
   /**
    * Get query analyzer configuration
    */
-  protected getQueryAnalyzerConfig(): any {
+  protected getQueryAnalyzerConfig(): ReturnType<QueryComplexityAnalyzer['getConfig']> {
     return this.queryAnalyzer.getConfig();
   }
 
@@ -813,13 +815,13 @@ export abstract class BaseConnector implements Connector {
    * Execute a validated SQL query
    * Subclasses implement this with their specific database driver
    */
-  protected abstract executeQuery(sql: string): Promise<any[]>;
+  protected abstract executeQuery(sql: string): Promise<QueryResultRow[]>;
 
   /**
    * Execute a parameterized SQL query (recommended for security)
    * Subclasses should override this to use proper prepared statements
    */
-  protected async executeParameterizedQuery(sql: string, parameters: any[] = []): Promise<any[]> {
+  protected async executeParameterizedQuery(sql: string, parameters: unknown[] = []): Promise<QueryResultRow[]> {
     // Default implementation falls back to executeQuery for backward compatibility
     // Subclasses should override this to use proper parameterized queries
     if (parameters.length > 0) {

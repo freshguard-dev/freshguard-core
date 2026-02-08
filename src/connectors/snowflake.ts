@@ -8,6 +8,7 @@
 import * as snowflake from 'snowflake-sdk';
 import { BaseConnector } from './base-connector.js';
 import type { ConnectorConfig, TableSchema, SecurityConfig } from '../types/connector.js';
+import type { QueryResultRow } from '../types/driver-results.js';
 import type { SourceCredentials } from '../types.js';
 import {
   ConnectionError,
@@ -95,7 +96,7 @@ export class SnowflakeConnector extends BaseConnector {
         password: this.config.password,
         database: this.database,
         schema: this.schema,
-        warehouse: this.warehouse || undefined,
+        warehouse: this.warehouse ?? undefined,
         authenticator: 'SNOWFLAKE', // Force standard auth for security
         timeout: this.connectionTimeout, // Connection timeout
       };
@@ -135,7 +136,7 @@ export class SnowflakeConnector extends BaseConnector {
   /**
    * Execute a parameterized SQL query using Snowflake bind variables
    */
-  protected async executeParameterizedQuery(sql: string, parameters: any[] = []): Promise<any[]> {
+  protected async executeParameterizedQuery(sql: string, parameters: unknown[] = []): Promise<QueryResultRow[]> {
     await this.connect();
 
     if (!this.connection) {
@@ -153,14 +154,14 @@ export class SnowflakeConnector extends BaseConnector {
       }
 
       const result = await this.executeWithTimeout(
-        () => new Promise<any[]>((resolve, reject) => {
-          const executeOptions: any = {
+        () => new Promise<QueryResultRow[]>((resolve, reject) => {
+          const executeOptions: Record<string, unknown> = {
             sqlText: finalSql,
-            complete: (err: any, _stmt: any, rows: any[]) => {
+            complete: (err: Error | undefined, _stmt: unknown, rows: Record<string, unknown>[]) => {
               if (err) {
                 reject(new Error(`Query execution failed: ${err.message}`));
               } else {
-                resolve(rows || []);
+                resolve((rows ?? []) as QueryResultRow[]);
               }
             }
           };
@@ -170,7 +171,7 @@ export class SnowflakeConnector extends BaseConnector {
             executeOptions.binds = parameters;
           }
 
-          this.connection!.execute(executeOptions);
+          this.connection!.execute(executeOptions as unknown as snowflake.StatementOption);
         }),
         this.queryTimeout
       );
@@ -197,7 +198,7 @@ export class SnowflakeConnector extends BaseConnector {
   /**
    * Execute a validated SQL query with security measures
    */
-  protected async executeQuery(sql: string): Promise<any[]> {
+  protected async executeQuery(sql: string): Promise<QueryResultRow[]> {
     return this.executeParameterizedQuery(sql, []);
   }
 
@@ -266,7 +267,7 @@ export class SnowflakeConnector extends BaseConnector {
   /**
    * Helper method to merge debug configuration
    */
-  private mergeDebugConfig(debugConfig?: import('../types.js').DebugConfig) {
+  private mergeDebugConfig(debugConfig?: import('../types.js').DebugConfig): import('../types.js').DebugConfig {
     return {
       enabled: debugConfig?.enabled ?? (process.env.NODE_ENV === 'development'),
       exposeQueries: debugConfig?.exposeQueries ?? true,
@@ -337,11 +338,11 @@ export class SnowflakeConnector extends BaseConnector {
       LIMIT $2
     `;
 
-    this.validateQuery(sql);
+    await this.validateQuery(sql);
 
     try {
       const result = await this.executeParameterizedQuery(sql, [this.schema.toUpperCase(), this.maxRows]);
-      return result.map((row: any) => row.TABLE_NAME).filter(Boolean);
+      return result.map((row) => String(row.TABLE_NAME ?? row.table_name ?? row.tablename ?? '')).filter(Boolean);
     } catch (error) {
       throw new QueryError(
         'Failed to list tables',
@@ -375,7 +376,7 @@ export class SnowflakeConnector extends BaseConnector {
       LIMIT $3
     `;
 
-    this.validateQuery(sql);
+    await this.validateQuery(sql);
 
     try {
       const result = await this.executeParameterizedQuery(sql, [tableNameUpper, this.schema.toUpperCase(), this.maxRows]);
@@ -387,9 +388,9 @@ export class SnowflakeConnector extends BaseConnector {
       return {
         table,
         columns: result.map(row => ({
-          name: row.COLUMN_NAME,
-          type: this.mapSnowflakeType(row.DATA_TYPE),
-          nullable: row.IS_NULLABLE === 'YES'
+          name: String(row.COLUMN_NAME ?? row.column_name ?? ''),
+          type: this.mapSnowflakeType(String(row.DATA_TYPE ?? row.data_type ?? '')),
+          nullable: (row.IS_NULLABLE ?? row.is_nullable) === 'YES'
         }))
       };
     } catch (error) {
@@ -497,7 +498,7 @@ export class SnowflakeConnector extends BaseConnector {
       'GEOMETRY': 'geometry'
     };
 
-    return typeMap[snowflakeType.toUpperCase()] || 'unknown';
+    return typeMap[snowflakeType.toUpperCase()] ?? 'unknown';
   }
 
   /**
@@ -544,20 +545,20 @@ export class SnowflakeConnector extends BaseConnector {
       throw new ConfigurationError('Missing required Snowflake credentials');
     }
 
-    const options = credentials.additionalOptions || {};
+    const options = credentials.additionalOptions ?? {};
 
     const config: ConnectorConfig = {
       host: credentials.host,
       port: 443,
-      database: credentials.database || (options.database as string) || '',
+      database: credentials.database ?? (options.database as string) ?? '',
       username: credentials.username,
       password: credentials.password,
       ssl: true
     };
 
     // Set optional fields
-    this.warehouse = (options.warehouse as string) || '';
-    this.schema = (options.schema as string) || 'PUBLIC';
+    this.warehouse = (options.warehouse as string) ?? '';
+    this.schema = (options.schema as string) ?? 'PUBLIC';
 
     // Validate and reconnect
     SnowflakeConnector.validateSnowflakeConfig(config);
@@ -614,7 +615,7 @@ export class SnowflakeConnector extends BaseConnector {
 
       return {
         rowCount,
-        lastUpdate: lastUpdate || undefined
+        lastUpdate: lastUpdate ?? undefined
       };
     } catch (error) {
       throw new QueryError(

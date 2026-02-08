@@ -8,7 +8,7 @@
  * Expected behavior: PostgreSQL listTables() should work regardless of case
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it } from 'vitest';
 import { PostgresConnector } from '../src/connectors/postgres.js';
 import type { ConnectorConfig } from '../src/types/connector.js';
 
@@ -131,7 +131,7 @@ describe('Case Sensitivity Bug Reproduction', () => {
       // Test validateQuery method directly
       try {
         // This should work if patterns are correct
-        await (connector as any).validateQuery(expectedSQL.trim());
+        await (connector as unknown as { validateQuery(sql: string): Promise<void> }).validateQuery(expectedSQL.trim());
         console.log('✅ Validation PASSED');
       } catch (error) {
         console.log('❌ Validation FAILED:', error instanceof Error ? error.message : error);

@@ -81,7 +81,7 @@ export class OperationTimeoutError extends Error {
   public readonly timestamp: Date;
 
   constructor(duration: number, operationName: string, customMessage?: string) {
-    const message = customMessage ||
+    const message = customMessage ??
       `Operation '${operationName}' timed out after ${duration}ms`;
     super(message);
     this.name = 'OperationTimeoutError';
@@ -144,7 +144,7 @@ export class TimeoutManager {
   constructor(config: TimeoutConfig) {
     this.controller = new AbortController();
     this.config = {
-      name: config.name || 'TimeoutManager',
+      name: config.name ?? 'TimeoutManager',
       parent: config.parent,
       message: config.message,
       propagateToChildren: config.propagateToChildren ?? true,
@@ -180,7 +180,7 @@ export class TimeoutManager {
     if (result.success && result.data !== undefined) {
       return result.data;
     } else {
-      throw result.error || new Error('Timeout execution failed with unknown error');
+      throw result.error ?? new Error('Timeout execution failed with unknown error');
     }
   }
 
@@ -461,7 +461,7 @@ export class TimeoutManager {
       return 0;
     }
 
-    const endTime = this.endTime || new Date();
+    const endTime = this.endTime ?? new Date();
     return endTime.getTime() - this.startTime.getTime();
   }
 }
@@ -498,12 +498,7 @@ export class TimeoutRegistry {
    * Get or create a timeout manager
    */
   getOrCreate(name: string, config: Omit<TimeoutConfig, 'name'>): TimeoutManager {
-    let manager = this.timeouts.get(name);
-
-    if (!manager) {
-      manager = this.create(name, config);
-    }
-
+    const manager = this.timeouts.get(name) ?? this.create(name, config);
     return manager;
   }
 

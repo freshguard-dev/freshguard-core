@@ -65,16 +65,16 @@ export async function checkSchemaChanges(
     const schemaComparer = new SchemaComparer();
 
     // Get configuration with defaults
-    const schemaConfig = rule.schemaChangeConfig || {};
-    const adaptationMode = schemaConfig.adaptationMode || 'manual';
-    const monitoringMode = schemaConfig.monitoringMode || 'full';
+    const schemaConfig = rule.schemaChangeConfig ?? {};
+    const adaptationMode = schemaConfig.adaptationMode ?? 'manual';
+    const monitoringMode = schemaConfig.monitoringMode ?? 'full';
     const trackTypes = schemaConfig.trackedColumns?.trackTypes !== false;
     const trackNullability = schemaConfig.trackedColumns?.trackNullability === true;
 
     // Execute schema introspection with timeout protection
     const currentSchema = await executeWithTimeout(
       () => executeSchemaQuery(connector, rule.tableName, debugConfig, debugFactory),
-      config?.timeoutMs || 30000,
+      config?.timeoutMs ?? 30000,
       'Schema introspection query timeout'
     );
 
@@ -157,7 +157,7 @@ export async function checkSchemaChanges(
 
     if (schemaChanges.hasChanges) {
       switch (adaptationMode) {
-        case 'auto':
+        case 'auto': {
           // Auto-adapt to safe changes only
           const hasSafeChangesOnly = [...schemaChanges.addedColumns, ...schemaChanges.modifiedColumns]
             .every(change => change.impact === 'safe') && schemaChanges.removedColumns.length === 0;
@@ -168,6 +168,7 @@ export async function checkSchemaChanges(
             adaptationReason = `Auto-adaptation: ${schemaChanges.summary}`;
           }
           break;
+        }
 
         case 'alert_only':
           // Always alert, never update baseline
@@ -263,7 +264,7 @@ export async function checkSchemaChanges(
 
     // Add debug information if available
     if (debugConfig.enabled && error instanceof Error && 'debug' in error) {
-      result.debug = (error as any).debug;
+      result.debug = (error as { debug: import('../types.js').DebugInfo }).debug;
     }
 
     return result;
@@ -477,7 +478,7 @@ async function executeWithTimeout<T>(
 function createSecureCheckResult(status: CheckResult['status'], data: Partial<CheckResult>): CheckResult {
   return {
     status,
-    executedAt: data.executedAt || new Date(),
+    executedAt: data.executedAt ?? new Date(),
     executionDurationMs: data.executionDurationMs,
     ...data
   };

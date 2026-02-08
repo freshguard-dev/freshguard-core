@@ -1,5 +1,7 @@
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
+import security from 'eslint-plugin-security';
+import noSecrets from 'eslint-plugin-no-secrets';
 
 export default tseslint.config(
   // Base ESLint recommended rules
@@ -24,6 +26,41 @@ export default tseslint.config(
   {
     // Files to include in linting
     files: ['src/**/*.ts', 'src/**/*.js', 'tests/**/*.ts'],
+  },
+
+  {
+    // Security plugin rules (eslint-plugin-security)
+    plugins: { security },
+    rules: {
+      'security/detect-unsafe-regex': 'error',
+      'security/detect-buffer-noassert': 'error',
+      'security/detect-child-process': 'error',
+      'security/detect-disable-mustache-escape': 'error',
+      'security/detect-eval-with-expression': 'error',
+      'security/detect-no-csrf-before-method-override': 'error',
+      'security/detect-non-literal-regexp': 'warn',
+      'security/detect-non-literal-require': 'error',
+      'security/detect-non-literal-fs-filename': 'warn',
+      'security/detect-object-injection': 'off', // Too many false positives with Record types
+      'security/detect-possible-timing-attacks': 'warn',
+      'security/detect-pseudoRandomBytes': 'warn',
+      'security/detect-new-buffer': 'error',
+      'security/detect-bidi-characters': 'error',
+    },
+  },
+
+  {
+    // No-secrets plugin rules (eslint-plugin-no-secrets)
+    plugins: { 'no-secrets': noSecrets },
+    rules: {
+      'no-secrets/no-secrets': ['error', {
+        tolerance: 4.5,
+        additionalRegexes: {
+          'AWS Key': 'AKIA[0-9A-Z]{16}',
+          'Slack Token': 'xox[baprs]-[0-9a-zA-Z-]+',
+        }
+      }],
+    },
   },
 
   {
@@ -67,7 +104,6 @@ export default tseslint.config(
         {
           selector: 'interface',
           format: ['PascalCase'],
-          prefix: ['I'] // Optional but common for interfaces
         },
         {
           selector: 'typeAlias',
@@ -109,6 +145,9 @@ export default tseslint.config(
       '@typescript-eslint/no-non-null-assertion': 'off', // Tests often need non-null assertions
       '@typescript-eslint/no-explicit-any': 'off', // Tests may need any for mocking
       '@typescript-eslint/explicit-function-return-type': 'off', // Not needed in tests
+      'security/detect-object-injection': 'off', // Tests use dynamic property access
+      'security/detect-non-literal-fs-filename': 'off', // Tests use dynamic paths
+      'no-secrets/no-secrets': 'off', // Tests may contain test fixtures that look like secrets
     },
   },
 

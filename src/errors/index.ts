@@ -617,55 +617,55 @@ export class ErrorHandler {
  */
 export const createError = {
   security: {
-    invalidIdentifier: (name: string) => SecurityError.invalidIdentifier(name),
-    blockedQuery: (keyword: string) => SecurityError.blockedQuery(keyword),
-    queryNotAllowed: () => SecurityError.queryPatternNotAllowed(),
-    sslRequired: () => SecurityError.sslRequired(),
+    invalidIdentifier: (name: string): SecurityError => SecurityError.invalidIdentifier(name),
+    blockedQuery: (keyword: string): SecurityError => SecurityError.blockedQuery(keyword),
+    queryNotAllowed: (): SecurityError => SecurityError.queryPatternNotAllowed(),
+    sslRequired: (): SecurityError => SecurityError.sslRequired(),
   },
 
   connection: {
-    hostUnreachable: (host: string, port?: number) => ConnectionError.hostUnreachable(host, port),
-    authFailed: (host: string) => ConnectionError.authenticationFailed(host),
-    databaseNotFound: (database: string, host: string) => ConnectionError.databaseNotFound(database, host),
+    hostUnreachable: (host: string, port?: number): ConnectionError => ConnectionError.hostUnreachable(host, port),
+    authFailed: (host: string): ConnectionError => ConnectionError.authenticationFailed(host),
+    databaseNotFound: (database: string, host: string): ConnectionError => ConnectionError.databaseNotFound(database, host),
   },
 
   timeout: {
-    query: (timeoutMs: number) => TimeoutError.queryTimeout(timeoutMs),
-    connection: (timeoutMs: number) => TimeoutError.connectionTimeout(timeoutMs),
+    query: (timeoutMs: number): TimeoutError => TimeoutError.queryTimeout(timeoutMs),
+    connection: (timeoutMs: number): TimeoutError => TimeoutError.connectionTimeout(timeoutMs),
   },
 
   query: {
-    tableNotFound: (table: string) => QueryError.tableNotFound(table),
-    columnNotFound: (column: string, table: string) => QueryError.columnNotFound(column, table),
-    resultTooLarge: (maxRows: number, table?: string) => QueryError.resultTooLarge(maxRows, table),
+    tableNotFound: (table: string): QueryError => QueryError.tableNotFound(table),
+    columnNotFound: (column: string, table: string): QueryError => QueryError.columnNotFound(column, table),
+    resultTooLarge: (maxRows: number, table?: string): QueryError => QueryError.resultTooLarge(maxRows, table),
   },
 
   config: {
-    missingRequired: (field: string) => ConfigurationError.missingRequired(field),
-    invalidValue: (field: string, value: string, expected: string) =>
+    missingRequired: (field: string): ConfigurationError => ConfigurationError.missingRequired(field),
+    invalidValue: (field: string, value: string, expected: string): ConfigurationError =>
       ConfigurationError.invalidValue(field, value, expected),
-    invalidFormat: (field: string, format: string) => ConfigurationError.invalidFormat(field, format),
+    invalidFormat: (field: string, format: string): ConfigurationError => ConfigurationError.invalidFormat(field, format),
   },
 
   monitoring: {
-    freshnessCheckFailed: (table: string, reason: string) =>
+    freshnessCheckFailed: (table: string, reason: string): MonitoringError =>
       MonitoringError.freshnessCheckFailed(table, reason),
-    volumeCheckFailed: (table: string, reason: string) =>
+    volumeCheckFailed: (table: string, reason: string): MonitoringError =>
       MonitoringError.volumeCheckFailed(table, reason),
   },
 
   metadata: {
-    initializationFailed: (reason?: string) => MetadataStorageError.initializationFailed(reason),
-    saveExecutionFailed: (ruleId: string, originalError?: Error) =>
+    initializationFailed: (reason?: string): MetadataStorageError => MetadataStorageError.initializationFailed(reason),
+    saveExecutionFailed: (ruleId: string, originalError?: Error): MetadataStorageError =>
       MetadataStorageError.saveExecutionFailed(ruleId, originalError),
-    getHistoricalDataFailed: (ruleId: string, days: number, originalError?: Error) =>
+    getHistoricalDataFailed: (ruleId: string, days: number, originalError?: Error): MetadataStorageError =>
       MetadataStorageError.getHistoricalDataFailed(ruleId, days, originalError),
-    saveRuleFailed: (ruleId: string, originalError?: Error) =>
+    saveRuleFailed: (ruleId: string, originalError?: Error): MetadataStorageError =>
       MetadataStorageError.saveRuleFailed(ruleId, originalError),
-    getRuleFailed: (ruleId: string, originalError?: Error) =>
+    getRuleFailed: (ruleId: string, originalError?: Error): MetadataStorageError =>
       MetadataStorageError.getRuleFailed(ruleId, originalError),
-    connectionFailed: (originalError?: Error) => MetadataStorageError.connectionFailed(originalError),
-    migrationFailed: (version?: string, originalError?: Error) =>
+    connectionFailed: (originalError?: Error): MetadataStorageError => MetadataStorageError.connectionFailed(originalError),
+    migrationFailed: (version?: string, originalError?: Error): MetadataStorageError =>
       MetadataStorageError.migrationFailed(version, originalError),
   },
 };

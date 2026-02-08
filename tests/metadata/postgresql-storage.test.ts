@@ -162,7 +162,7 @@ describe('PostgreSQLMetadataStorage', () => {
     });
 
     it('should work with null metadata config', () => {
-      // @ts-ignore - Testing null case
+      // @ts-expect-error - Testing null case
       const storage = new PostgreSQLMetadataStorage('postgresql://localhost/test', null);
 
       expect(storage).toBeInstanceOf(PostgreSQLMetadataStorage);

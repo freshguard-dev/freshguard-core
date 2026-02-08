@@ -14,7 +14,7 @@ export { schema };
  * @param connectionString - PostgreSQL connection string
  * @returns Drizzle database instance
  */
-export function createDatabase(connectionString: string) {
+export function createDatabase(connectionString: string): ReturnType<typeof drizzle> {
   const client = postgres(connectionString);
   return drizzle(client, { schema });
 }

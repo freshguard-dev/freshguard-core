@@ -9,8 +9,8 @@ import { fileURLToPath } from 'url';
 import { sql } from 'drizzle-orm';
 import type { Database } from './index.js';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const MIGRATIONS_DIR = join(__dirname, 'migrations');
+const migrationsBaseDir = dirname(fileURLToPath(import.meta.url));
+const MIGRATIONS_DIR = join(migrationsBaseDir, 'migrations');
 
 interface Migration {
   version: number;
@@ -36,6 +36,7 @@ async function getAvailableMigrations(): Promise<Migration[]> {
 
     const version = parseInt(match[1], 10);
     const name = match[2].replace(/_/g, ' ');
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
     const sqlContent = await readFile(join(MIGRATIONS_DIR, filename), 'utf-8');
 
     migrations.push({ version, name, sql: sqlContent, filename });
@@ -53,8 +54,8 @@ async function getAppliedMigrations(db: Database): Promise<number[]> {
       SELECT version FROM schema_migrations
       ORDER BY version
     `);
-    return result.map((row: any) => row.version);
-  } catch (error) {
+    return result.map((row: Record<string, unknown>) => row.version as number);
+  } catch {
     // If table doesn't exist, no migrations have been applied
     return [];
   }
@@ -136,7 +137,8 @@ export async function getCurrentVersion(db: Database): Promise<number> {
       SELECT MAX(version) as max_version
       FROM schema_migrations
     `);
-    return (result[0] as any)?.max_version || 0;
+    const firstRow = result[0] as Record<string, unknown> | undefined;
+    return (firstRow?.max_version as number) ?? 0;
   } catch {
     return 0;
   }

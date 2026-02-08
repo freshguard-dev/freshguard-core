@@ -58,7 +58,7 @@ describe('PostgreSQL Debug Tests', () => {
     expect(connector.testConnection).toBeDefined();
   });
 
-  it('should generate and validate listTables SQL query', async () => {
+  it('should generate and validate listTables SQL query', () => {
     // Test query validation without actual execution to avoid connection errors
     console.log('\n=== Starting listTables validation test ===');
     console.log('Testing SQL query validation for listTables method');

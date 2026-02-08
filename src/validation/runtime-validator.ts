@@ -44,7 +44,7 @@ export class ValidationException extends Error {
 
   constructor(errors: ValidationError[], message?: string) {
     const defaultMessage = `Validation failed with ${errors.length} error${errors.length === 1 ? '' : 's'}`;
-    super(message || defaultMessage);
+    super(message ?? defaultMessage);
     this.name = 'ValidationException';
     this.errors = errors;
     this.timestamp = new Date();
@@ -62,7 +62,7 @@ export class ValidationException extends Error {
   /**
    * Convert to JSON for logging/API responses
    */
-  toJSON() {
+  toJSON(): { name: string; message: string; errors: ValidationError[]; timestamp: Date } {
     return {
       name: this.name,
       message: this.message,
@@ -84,7 +84,7 @@ function formatZodErrors(zodError: z.ZodError): ValidationError[] {
     field: issue.path.join('.') || 'root',
     code: issue.code,
     message: issue.message,
-    value: issue.path.length > 0 ? undefined : (issue as any).received // Don't include sensitive values
+    value: issue.path.length > 0 ? undefined : ('received' in issue ? (issue as { received: unknown }).received : undefined) // Don't include sensitive values
   }));
 }
 

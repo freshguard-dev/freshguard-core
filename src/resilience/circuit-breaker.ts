@@ -145,20 +145,20 @@ export class CircuitBreaker {
 
   constructor(config: CircuitBreakerConfig) {
     this.config = {
-      failureThreshold: config.failureThreshold || 5,
-      successThreshold: config.successThreshold || 3,
-      recoveryTimeout: config.recoveryTimeout || 60000, // 1 minute
-      windowSize: config.windowSize || 100,
-      errorFilter: config.errorFilter || (() => true), // Count all errors by default
-      name: config.name || 'Circuit',
-      enableDetailedLogging: config.enableDetailedLogging || false
+      failureThreshold: config.failureThreshold ?? 5,
+      successThreshold: config.successThreshold ?? 3,
+      recoveryTimeout: config.recoveryTimeout ?? 60000, // 1 minute
+      windowSize: config.windowSize ?? 100,
+      errorFilter: config.errorFilter ?? ((): boolean => true), // Count all errors by default
+      name: config.name ?? 'Circuit',
+      enableDetailedLogging: config.enableDetailedLogging ?? false
     };
 
     this.lastStateChangeTime = new Date();
 
     // Initialize observability
-    this.logger = config.logger || createComponentLogger('circuit-breaker');
-    this.metrics = config.metrics || createComponentMetrics('circuit_breaker');
+    this.logger = config.logger ?? createComponentLogger('circuit-breaker');
+    this.metrics = config.metrics ?? createComponentMetrics('circuit_breaker');
     this.enableDetailedLogging = config.enableDetailedLogging !== false;
 
     // Validate configuration
@@ -194,7 +194,7 @@ export class CircuitBreaker {
     try {
       // Check if circuit is open
       if (this.state === CircuitBreakerState.OPEN) {
-        if (Date.now() < (this.nextAttemptTime?.getTime() || 0)) {
+        if (Date.now() < (this.nextAttemptTime?.getTime() ?? 0)) {
           this.rejectedCalls++;
 
           // Log rejected call
@@ -202,11 +202,12 @@ export class CircuitBreaker {
             this.logger.debug('Circuit breaker rejected call', {
               circuitName: this.config.name,
               rejectedCalls: this.rejectedCalls,
-              nextAttemptTime: this.nextAttemptTime!.toISOString()
+              nextAttemptTime: this.nextAttemptTime?.toISOString() ?? 'unknown'
             });
           }
 
-          throw new CircuitOpenError(this.config.name, this.nextAttemptTime!);
+          const attemptTime = this.nextAttemptTime ?? new Date();
+          throw new CircuitOpenError(this.config.name, attemptTime);
         } else {
           // Time to attempt recovery
           this.changeState(CircuitBreakerState.HALF_OPEN);
@@ -482,7 +483,7 @@ export class CircuitBreaker {
       case CircuitBreakerState.HALF_OPEN:
         return true;
       case CircuitBreakerState.OPEN:
-        return Date.now() >= (this.nextAttemptTime?.getTime() || 0);
+        return Date.now() >= (this.nextAttemptTime?.getTime() ?? 0);
     }
   }
 
@@ -537,7 +538,7 @@ export function createDatabaseCircuitBreaker(name: string): CircuitBreaker {
     successThreshold: 3,
     recoveryTimeout: 60000, // 1 minute
     windowSize: 100,
-    errorFilter: (error) => {
+    errorFilter: (error): boolean => {
       // Don't count validation errors or authentication errors
       return !(error.name === 'ValidationError' ||
                error.name === 'AuthenticationError' ||
@@ -557,7 +558,7 @@ export function createApiCircuitBreaker(name: string): CircuitBreaker {
     successThreshold: 2,
     recoveryTimeout: 30000, // 30 seconds
     windowSize: 50,
-    errorFilter: (error) => {
+    errorFilter: (error): boolean => {
       // Count 5xx errors but not 4xx client errors
       if (error.message.includes('status')) {
         const statusMatch = /status\s+(\d+)/i.exec(error.message);

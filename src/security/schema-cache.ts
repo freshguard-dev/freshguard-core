@@ -184,8 +184,8 @@ export class SchemaCache {
   constructor(config: Partial<SchemaCacheConfig> = {}) {
     this.config = {
       ...DEFAULT_CONFIG,
-      logger: config.logger || createComponentLogger('schema-cache'),
-      metrics: config.metrics || createComponentMetrics('schema_cache'),
+      logger: config.logger ?? createComponentLogger('schema-cache'),
+      metrics: config.metrics ?? createComponentMetrics('schema_cache'),
       ...config
     };
 
@@ -516,8 +516,8 @@ export class SchemaCache {
    */
   private parseKey(key: CacheKey): { database: string; tableName: string } {
     const parts = key.split(':', 2);
-    const database = parts[0] || '';
-    const tableName = parts[1] || '';
+    const database = parts[0] ?? '';
+    const tableName = parts[1] ?? '';
     return { database, tableName };
   }
 

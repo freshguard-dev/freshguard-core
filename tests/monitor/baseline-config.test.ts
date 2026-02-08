@@ -251,6 +251,7 @@ describe('BaselineConfigResolver', () => {
       it('should reject invalid calculation methods', () => {
         const rule: MonitoringRule = {
           ...baseRule,
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           baselineConfig: { calculationMethod: 'invalid' as any },
         };
 

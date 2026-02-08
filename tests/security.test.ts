@@ -10,7 +10,7 @@
  * - Identifier validation
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BaseConnector } from '../src/connectors/base-connector.js';
 import { PostgresConnector } from '../src/connectors/postgres.js';
 import { DuckDBConnector } from '../src/connectors/duckdb.js';
@@ -20,8 +20,6 @@ import {
   SecurityError,
   TimeoutError,
   ConnectionError,
-  QueryError,
-  ConfigurationError,
   ErrorHandler
 } from '../src/errors/index.js';
 import {
@@ -30,7 +28,6 @@ import {
   validateConnectorConfig,
   sanitizeString,
   validateLimit,
-  validateConnectionString
 } from '../src/validators/index.js';
 import type { ConnectorConfig, SecurityConfig } from '../src/types/connector.js';
 
@@ -40,26 +37,35 @@ class MockConnector extends BaseConnector {
     super(config, securityConfig);
   }
 
-  protected async executeQuery(sql: string): Promise<any[]> {
+  protected executeQuery(_sql: string): Promise<any[]> {
     // Mock implementation for testing
-    return [{ result: 'mock' }];
+    return Promise.resolve([{ result: 'mock' }]);
   }
 
-  async testConnection(): Promise<boolean> {
-    return true;
+  testConnection(): Promise<boolean> {
+    return Promise.resolve(true);
   }
 
-  async listTables(): Promise<string[]> {
-    return ['mock_table'];
+  listTables(): Promise<string[]> {
+    return Promise.resolve(['mock_table']);
   }
 
-  async getTableSchema(table: string): Promise<any> {
-    return { table, columns: [] };
+  getTableSchema(table: string): Promise<any> {
+    return Promise.resolve({ table, columns: [] });
   }
 
-  async close(): Promise<void> {
+  close(): Promise<void> {
     // Mock close
+    return Promise.resolve();
   }
+}
+
+// Type for accessing protected/private connector methods in tests
+interface ConnectorInternals {
+  validateQuery(sql: string): Promise<void>;
+  escapeIdentifier(name: string): string;
+  executeWithTimeout<T>(fn: () => Promise<T>, timeout: number): Promise<T>;
+  validateResultSize(results: unknown[]): void;
 }
 
 describe('SQL Injection Prevention', () => {
@@ -78,6 +84,7 @@ describe('SQL Injection Prevention', () => {
     connectionTimeout: 30000,
     queryTimeout: 10000,
     maxRows: 1000,
+    /* eslint-disable security/detect-unsafe-regex */
     allowedQueryPatterns: [
       /^SELECT COUNT\(\*\)( as \w+)? FROM/i,
       /^SELECT MAX\(/i,
@@ -86,6 +93,7 @@ describe('SQL Injection Prevention', () => {
       /^SHOW /i,
       /^SELECT .+ FROM information_schema\./i,
     ],
+    /* eslint-enable security/detect-unsafe-regex */
     blockedKeywords: [
       'INSERT', 'UPDATE', 'DELETE', 'DROP', 'ALTER', 'TRUNCATE',
       '--', '/*', '*/', 'EXEC', 'EXECUTE', 'xp_', 'sp_'
@@ -100,7 +108,6 @@ describe('SQL Injection Prevention', () => {
 
   describe('Query Pattern Validation', () => {
     it('should allow safe SELECT COUNT queries', async () => {
-      const sql = 'SELECT COUNT(*) FROM users';
       // This should not throw
       await expect(connector.getRowCount('users')).resolves.not.toThrow();
     });
@@ -112,70 +119,70 @@ describe('SQL Injection Prevention', () => {
 
     it('should block INSERT statements', async () => {
       await expect(
-        (connector as any).validateQuery("INSERT INTO users VALUES ('hacker')")
+        (connector as unknown as ConnectorInternals).validateQuery("INSERT INTO users VALUES ('hacker')")
       ).rejects.toThrow(SecurityError);
       await expect(
-        (connector as any).validateQuery("INSERT INTO users VALUES ('hacker')")
+        (connector as unknown as ConnectorInternals).validateQuery("INSERT INTO users VALUES ('hacker')")
       ).rejects.toThrow('Blocked keyword detected: INSERT');
     });
 
     it('should block UPDATE statements', async () => {
       await expect(
-        (connector as any).validateQuery("UPDATE users SET password = 'hacked'")
+        (connector as unknown as ConnectorInternals).validateQuery("UPDATE users SET password = 'hacked'")
       ).rejects.toThrow(SecurityError);
       await expect(
-        (connector as any).validateQuery("UPDATE users SET password = 'hacked'")
+        (connector as unknown as ConnectorInternals).validateQuery("UPDATE users SET password = 'hacked'")
       ).rejects.toThrow('Blocked keyword detected: UPDATE');
     });
 
     it('should block DELETE statements', async () => {
       await expect(
-        (connector as any).validateQuery("DELETE FROM users")
+        (connector as unknown as ConnectorInternals).validateQuery("DELETE FROM users")
       ).rejects.toThrow(SecurityError);
       await expect(
-        (connector as any).validateQuery("DELETE FROM users")
+        (connector as unknown as ConnectorInternals).validateQuery("DELETE FROM users")
       ).rejects.toThrow('Blocked keyword detected: DELETE');
     });
 
     it('should block DROP statements', async () => {
       await expect(
-        (connector as any).validateQuery("DROP TABLE users")
+        (connector as unknown as ConnectorInternals).validateQuery("DROP TABLE users")
       ).rejects.toThrow(SecurityError);
       await expect(
-        (connector as any).validateQuery("DROP TABLE users")
+        (connector as unknown as ConnectorInternals).validateQuery("DROP TABLE users")
       ).rejects.toThrow('Blocked keyword detected: DROP');
     });
 
     it('should block ALTER statements', async () => {
       await expect(
-        (connector as any).validateQuery("ALTER TABLE users ADD COLUMN evil TEXT")
+        (connector as unknown as ConnectorInternals).validateQuery("ALTER TABLE users ADD COLUMN evil TEXT")
       ).rejects.toThrow(SecurityError);
     });
 
     it('should block SQL comments', async () => {
       await expect(
-        (connector as any).validateQuery("SELECT * FROM users -- comment")
+        (connector as unknown as ConnectorInternals).validateQuery("SELECT * FROM users -- comment")
       ).rejects.toThrow(SecurityError);
       await expect(
-        (connector as any).validateQuery("SELECT * FROM users /* comment */")
+        (connector as unknown as ConnectorInternals).validateQuery("SELECT * FROM users /* comment */")
       ).rejects.toThrow(SecurityError);
     });
 
     it('should block stored procedures', async () => {
       await expect(
-        (connector as any).validateQuery("EXEC xp_cmdshell 'dir'")
+        (connector as unknown as ConnectorInternals).validateQuery("EXEC xp_cmdshell 'dir'")
       ).rejects.toThrow(SecurityError);
       await expect(
-        (connector as any).validateQuery("EXECUTE sp_configure 'show advanced options'")
+        (connector as unknown as ConnectorInternals).validateQuery("EXECUTE sp_configure 'show advanced options'")
       ).rejects.toThrow(SecurityError);
     });
 
     it('should reject unknown query patterns', async () => {
       await expect(
-        (connector as any).validateQuery("GRANT ALL PRIVILEGES ON *.* TO 'user'@'%'")
+        (connector as unknown as ConnectorInternals).validateQuery("GRANT ALL PRIVILEGES ON *.* TO 'user'@'%'")
       ).rejects.toThrow(SecurityError);
       await expect(
-        (connector as any).validateQuery("GRANT ALL PRIVILEGES ON *.* TO 'user'@'%'")
+        (connector as unknown as ConnectorInternals).validateQuery("GRANT ALL PRIVILEGES ON *.* TO 'user'@'%'")
       ).rejects.toThrow('Query pattern not allowed');
     });
   });
@@ -183,46 +190,46 @@ describe('SQL Injection Prevention', () => {
   describe('Identifier Validation', () => {
     it('should allow valid table names', () => {
       expect(() => {
-        (connector as any).escapeIdentifier('users');
+        (connector as unknown as ConnectorInternals).escapeIdentifier('users');
       }).not.toThrow();
 
       expect(() => {
-        (connector as any).escapeIdentifier('user_sessions');
+        (connector as unknown as ConnectorInternals).escapeIdentifier('user_sessions');
       }).not.toThrow();
 
       expect(() => {
-        (connector as any).escapeIdentifier('public.users');
+        (connector as unknown as ConnectorInternals).escapeIdentifier('public.users');
       }).not.toThrow();
     });
 
     it('should reject malicious identifiers with SQL injection', () => {
       expect(() => {
-        (connector as any).escapeIdentifier("users; DROP TABLE users; --");
+        (connector as unknown as ConnectorInternals).escapeIdentifier("users; DROP TABLE users; --");
       }).toThrow(SecurityError);
       expect(() => {
-        (connector as any).escapeIdentifier("users; DROP TABLE users; --");
+        (connector as unknown as ConnectorInternals).escapeIdentifier("users; DROP TABLE users; --");
       }).toThrow('Invalid identifier');
     });
 
     it('should reject identifiers with quotes', () => {
       expect(() => {
-        (connector as any).escapeIdentifier("users' OR '1'='1");
+        (connector as unknown as ConnectorInternals).escapeIdentifier("users' OR '1'='1");
       }).toThrow(SecurityError);
     });
 
     it('should reject identifiers with parentheses', () => {
       expect(() => {
-        (connector as any).escapeIdentifier("users()");
+        (connector as unknown as ConnectorInternals).escapeIdentifier("users()");
       }).toThrow(SecurityError);
     });
 
     it('should reject very long identifiers', () => {
       const longName = 'a'.repeat(300);
       expect(() => {
-        (connector as any).escapeIdentifier(longName);
+        (connector as unknown as ConnectorInternals).escapeIdentifier(longName);
       }).toThrow(SecurityError);
       expect(() => {
-        (connector as any).escapeIdentifier(longName);
+        (connector as unknown as ConnectorInternals).escapeIdentifier(longName);
       }).toThrow('Identifier too long');
     });
   });
@@ -263,7 +270,9 @@ describe('Input Validation', () => {
     });
 
     it('should reject non-string input', () => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       expect(() => validateTableName(null as any)).toThrow('Table name must be a string');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       expect(() => validateTableName(123 as any)).toThrow('Table name must be a string');
     });
   });
@@ -466,7 +475,7 @@ describe('Timeout Protection', () => {
     const slowOperation = () => new Promise(resolve => setTimeout(resolve, 2000));
 
     await expect(
-      (connector as any).executeWithTimeout(slowOperation, 500)
+      (connector as unknown as ConnectorInternals).executeWithTimeout(slowOperation, 500)
     ).rejects.toThrow(TimeoutError);
   });
 
@@ -476,7 +485,7 @@ describe('Timeout Protection', () => {
     // Mock a fast operation
     const fastOperation = () => Promise.resolve('success');
 
-    const result = await (connector as any).executeWithTimeout(fastOperation, 500);
+    const result = await (connector as unknown as ConnectorInternals).executeWithTimeout(fastOperation, 500);
     expect(result).toBe('success');
   });
 });
@@ -599,7 +608,7 @@ describe('Result Size Validation', () => {
     const largeResults = new Array(150).fill({ id: 1, name: 'test' });
 
     expect(() => {
-      (connector as any).validateResultSize(largeResults);
+      (connector as unknown as ConnectorInternals).validateResultSize(largeResults);
     }).toThrow('Query returned too many rows (max 100)');
   });
 
@@ -610,7 +619,7 @@ describe('Result Size Validation', () => {
     const smallResults = new Array(50).fill({ id: 1, name: 'test' });
 
     expect(() => {
-      (connector as any).validateResultSize(smallResults);
+      (connector as unknown as ConnectorInternals).validateResultSize(smallResults);
     }).not.toThrow();
   });
 });
@@ -635,7 +644,7 @@ describe('Legacy API Security', () => {
   });
 
   it('should show deprecation warnings for legacy methods', () => {
-    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => { /* noop */ });
 
     const config: ConnectorConfig = {
       host: 'localhost',

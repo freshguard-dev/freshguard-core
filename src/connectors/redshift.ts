@@ -9,6 +9,7 @@
 import postgres from 'postgres';
 import { BaseConnector } from './base-connector.js';
 import type { ConnectorConfig, TableSchema, SecurityConfig } from '../types/connector.js';
+import type { QueryResultRow } from '../types/driver-results.js';
 import type { SourceCredentials } from '../types.js';
 import {
   ConnectionError,
@@ -53,13 +54,13 @@ export class RedshiftConnector extends BaseConnector {
 
       this.client = postgres({
         host: this.config.host,
-        port: this.config.port || 5439, // Default Redshift port
+        port: this.config.port ?? 5439, // Default Redshift port
         database: this.config.database,
         username: this.config.username,
         password: this.config.password,
         ssl: this.config.ssl !== false ? sslConfig : false,
         connection: {
-          application_name: this.config.applicationName || 'freshguard-core'
+          application_name: this.config.applicationName ?? 'freshguard-core'
         },
         transform: {
           undefined: null
@@ -88,14 +89,14 @@ export class RedshiftConnector extends BaseConnector {
   /**
    * Execute a validated SQL query with security measures
    */
-  protected async executeQuery(sql: string): Promise<any[]> {
+  protected async executeQuery(sql: string): Promise<QueryResultRow[]> {
     return this.executeParameterizedQuery(sql, []);
   }
 
   /**
    * Execute a parameterized SQL query using postgres client
    */
-  protected async executeParameterizedQuery(sql: string, parameters: any[] = []): Promise<any[]> {
+  protected async executeParameterizedQuery(sql: string, parameters: unknown[] = []): Promise<QueryResultRow[]> {
     await this.connect();
 
     if (!this.client) {
@@ -105,7 +106,7 @@ export class RedshiftConnector extends BaseConnector {
     try {
       const result = await this.executeWithTimeout(
         async () => parameters.length > 0
-          ? await this.client!.unsafe(sql, parameters)  // Use parameterized query with unsafe
+          ? await this.client!.unsafe(sql, parameters as (string | number | boolean | null)[])  // Use parameterized query with unsafe
           : await this.client!.unsafe(sql),              // Fallback to unsafe for non-parameterized
         this.queryTimeout
       );
@@ -195,7 +196,7 @@ export class RedshiftConnector extends BaseConnector {
   /**
    * Helper method to merge debug configuration
    */
-  private mergeDebugConfig(debugConfig?: import('../types.js').DebugConfig) {
+  private mergeDebugConfig(debugConfig?: import('../types.js').DebugConfig): import('../types.js').DebugConfig {
     return {
       enabled: debugConfig?.enabled ?? (process.env.NODE_ENV === 'development'),
       exposeQueries: debugConfig?.exposeQueries ?? true,
@@ -253,11 +254,11 @@ export class RedshiftConnector extends BaseConnector {
       LIMIT $2
     `;
 
-    this.validateQuery(sql);
+    await this.validateQuery(sql);
 
     try {
       const result = await this.executeParameterizedQuery(sql, ['public', this.maxRows]);
-      return result.map((row: any) => row.tablename).filter(Boolean);
+      return result.map((row) => String(row.tablename ?? row.table_name ?? row.TABLE_NAME ?? '')).filter(Boolean);
     } catch (error) {
       throw new QueryError(
         'Failed to list tables',
@@ -287,7 +288,7 @@ export class RedshiftConnector extends BaseConnector {
       LIMIT $3
     `;
 
-    this.validateQuery(sql);
+    await this.validateQuery(sql);
 
     try {
       const result = await this.executeParameterizedQuery(sql, ['public', table, this.maxRows]);
@@ -299,9 +300,9 @@ export class RedshiftConnector extends BaseConnector {
       return {
         table,
         columns: result.map(row => ({
-          name: row.column_name,
-          type: this.mapRedshiftType(row.data_type),
-          nullable: row.is_nullable === 'YES'
+          name: String(row.column_name ?? row.COLUMN_NAME ?? ''),
+          type: this.mapRedshiftType(String(row.data_type ?? row.DATA_TYPE ?? '')),
+          nullable: (row.is_nullable ?? row.IS_NULLABLE) === 'YES'
         }))
       };
     } catch (error) {
@@ -346,11 +347,11 @@ export class RedshiftConnector extends BaseConnector {
         WHERE database = $1 AND schema = $2 AND table = $3
       `;
 
-      this.validateQuery(sql);
+      await this.validateQuery(sql);
       const result = await this.executeParameterizedQuery(sql, [this.config.database, 'public', table]);
 
-      if (result.length > 0 && result[0].last_modified) {
-        return new Date(result[0].last_modified);
+      if (result.length > 0 && result[0]?.last_modified) {
+        return new Date(String(result[0].last_modified));
       }
     } catch {
       // SVV_TABLE_INFO query failed, try pg_stat_user_tables fallback
@@ -366,11 +367,11 @@ export class RedshiftConnector extends BaseConnector {
           WHERE schemaname = $1 AND relname = $2
         `;
 
-        this.validateQuery(sql);
+        await this.validateQuery(sql);
         const result = await this.executeParameterizedQuery(sql, ['public', table]);
 
-        if (result.length > 0 && result[0].last_modified) {
-          return new Date(result[0].last_modified);
+        if (result.length > 0 && result[0]?.last_modified) {
+          return new Date(String(result[0].last_modified));
         }
       } catch {
         // All system queries failed, return null
@@ -454,7 +455,7 @@ export class RedshiftConnector extends BaseConnector {
       'varbyte': 'text'
     };
 
-    return typeMap[redshiftType.toLowerCase()] || 'unknown';
+    return typeMap[redshiftType.toLowerCase()] ?? 'unknown';
   }
 
   /**
@@ -462,7 +463,7 @@ export class RedshiftConnector extends BaseConnector {
    */
   protected escapeIdentifier(identifier: string): string {
     // Only allow alphanumeric, underscore, and dot (for schema.table)
-    if (!/^[a-zA-Z0-9_\.]+$/.test(identifier)) {
+    if (!/^[a-zA-Z0-9_.]+$/.test(identifier)) {
       throw new Error(`Invalid identifier: ${identifier}`);
     }
 
@@ -488,11 +489,11 @@ export class RedshiftConnector extends BaseConnector {
 
     // Convert legacy credentials to new format
     const config: ConnectorConfig = {
-      host: credentials.host || '',
-      port: credentials.port || 5439,
-      database: credentials.database || '',
-      username: credentials.username || '',
-      password: credentials.password || '',
+      host: credentials.host ?? '',
+      port: credentials.port ?? 5439,
+      database: credentials.database ?? '',
+      username: credentials.username ?? '',
+      password: credentials.password ?? '',
       ssl: credentials.sslMode !== 'disable'
     };
 
@@ -549,7 +550,7 @@ export class RedshiftConnector extends BaseConnector {
 
       return {
         rowCount,
-        lastUpdate: lastUpdate || undefined
+        lastUpdate: lastUpdate ?? undefined
       };
     } catch (error) {
       throw new QueryError(

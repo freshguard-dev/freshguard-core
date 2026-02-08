@@ -26,7 +26,8 @@ export async function createMetadataStorage(
     }
     storage = new PostgreSQLMetadataStorage(config.url, config);
   } else {
-    throw new Error(`Unknown storage type: ${(config as any).type}`);
+    const _exhaustiveCheck: never = config.type;
+    throw new Error(`Unknown storage type: ${_exhaustiveCheck as string}`);
   }
 
   await storage.initialize();

@@ -56,6 +56,7 @@ const mockMetadataStorage: MetadataStorage = {
 };
 
 // Mock performance for testing
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 global.performance = {
   now: vi.fn(() => 100),
 } as any;
@@ -302,9 +303,8 @@ describe('Debug-Enhanced Freshness Monitoring', () => {
       };
 
       // Mock performance.now to return different values
-      (performance.now as any)
-        .mockReturnValueOnce(100) // Start time
-        .mockReturnValueOnce(150); // End time
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      (performance.now as any).mockReturnValueOnce(100).mockReturnValueOnce(150);
 
       // Mock database error
       (mockConnector.getRowCount as MockedFunction<any>).mockRejectedValue(

@@ -151,7 +151,7 @@ export class SchemaComparer {
 
     const trackTypes = config.trackTypes !== false; // Default: true
     const trackNullability = config.trackNullability === true; // Default: false
-    const monitoringMode = config.monitoringMode || 'full';
+    const monitoringMode = config.monitoringMode ?? 'full';
 
     // Create column maps for efficient lookup
     const baselineColumns = new Map(baseline.columns.map(col => [col.name, col]));

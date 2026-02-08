@@ -79,20 +79,20 @@ export class SchemaConfigResolver {
    * Resolve configuration with defaults
    */
   private resolveConfiguration(metadataConfig: MetadataStorageConfig): ResolvedSchemaConfig {
-    const schemaConfig = metadataConfig.schema || {};
+    const schemaConfig = metadataConfig.schema ?? {};
 
     // Apply defaults
-    const schemaName = schemaConfig.name || 'public';
-    const tablePrefix = schemaConfig.tablePrefix || '';
+    const schemaName = schemaConfig.name ?? 'public';
+    const tablePrefix = schemaConfig.tablePrefix ?? '';
 
     // Apply table prefix to base table names
     const tables = {
       checkExecutions: this.applyTablePrefix(
-        schemaConfig.tables?.checkExecutions || 'checkExecutions',
+        schemaConfig.tables?.checkExecutions ?? 'checkExecutions',
         tablePrefix
       ),
       monitoringRules: this.applyTablePrefix(
-        schemaConfig.tables?.monitoringRules || 'monitoringRules',
+        schemaConfig.tables?.monitoringRules ?? 'monitoringRules',
         tablePrefix
       ),
     };

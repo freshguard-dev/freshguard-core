@@ -281,7 +281,7 @@ describe('MetadataStorageError', () => {
 
     it('should handle null and undefined context', () => {
       const errorWithUndefined = new MetadataStorageError('Test', 'test', undefined);
-      const errorWithNull = new MetadataStorageError('Test', 'test', null as any);
+      const errorWithNull = new MetadataStorageError('Test', 'test', null as unknown as Record<string, unknown> | undefined);
 
       expect(errorWithUndefined.context).toBeUndefined();
       expect(errorWithNull.context).toBeUndefined();
@@ -304,6 +304,7 @@ describe('MetadataStorageError', () => {
         code: 'METADATA_STORAGE_FAILED',
         timestamp: error.timestamp.toISOString(),
         sanitized: true,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         debugId: expect.any(String),
         debug: undefined
       });

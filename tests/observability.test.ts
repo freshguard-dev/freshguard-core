@@ -3,7 +3,7 @@
  * Part of Phase 2 Security Implementation
  */
 
-import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, test, expect, beforeEach, afterEach } from 'vitest';
 import {
   StructuredLogger,
   LogLevel,
@@ -223,8 +223,8 @@ describe('Observability Layer Tests', () => {
       // Force failures to trip circuit
       const failingOperation = () => Promise.reject(new Error('Test failure'));
 
-      try { await circuitBreaker.execute(failingOperation); } catch {}
-      try { await circuitBreaker.execute(failingOperation); } catch {}
+      try { await circuitBreaker.execute(failingOperation); } catch { /* expected */ }
+      try { await circuitBreaker.execute(failingOperation); } catch { /* expected */ }
 
       // Circuit should now be OPEN
       expect(circuitBreaker.getState()).toBe(CircuitBreakerState.OPEN);
@@ -358,14 +358,14 @@ describe('Observability Layer Tests', () => {
         await logTimedOperation(
           logger,
           'failing-operation',
-          async () => {
+          () => {
             throw new Error('Operation failed');
           },
           { testContext: 'value' }
         );
         expect(true).toBe(false); // Should not reach here
       } catch (error) {
-        expect(error.message).toBe('Operation failed');
+        expect((error as Error).message).toBe('Operation failed');
       }
     });
 
@@ -401,13 +401,13 @@ describe('Observability Layer Tests', () => {
           'failing-operation',
           'test-db',
           'test-table',
-          async () => {
+          () => {
             throw new Error('Operation failed');
           }
         );
         expect(true).toBe(false); // Should not reach here
       } catch (error) {
-        expect(error.message).toBe('Operation failed');
+        expect((error as Error).message).toBe('Operation failed');
       }
 
       const queryMetrics = metrics.getQueryMetrics();
@@ -464,7 +464,7 @@ describe('Observability Layer Tests', () => {
               'nested-failing-operation',
               'test-db',
               'test-table',
-              async () => {
+              () => {
                 throw new Error('Nested operation failed');
               }
             );

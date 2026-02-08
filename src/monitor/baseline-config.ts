@@ -113,20 +113,20 @@ export class BaselineConfigResolver {
    * Resolve configuration with backwards compatibility
    */
   private resolveConfiguration(rule: MonitoringRule): ResolvedBaselineConfig {
-    const baselineConfig = rule.baselineConfig || {};
+    const baselineConfig = rule.baselineConfig ?? {};
 
     // Apply backwards compatibility with existing fields
     const windowDays = this.resolveWindowDays(rule, baselineConfig);
-    const deviationThresholdPercent = rule.deviationThresholdPercent || 20;
-    const minimumRowCount = rule.minimumRowCount || 0;
+    const deviationThresholdPercent = rule.deviationThresholdPercent ?? 20;
+    const minimumRowCount = rule.minimumRowCount ?? 0;
 
     // Apply defaults for new configuration options
     const minimumDataPoints = baselineConfig.minimumDataPoints ?? 3;
     const timeoutSeconds = baselineConfig.timeoutSeconds ?? 30;
-    const excludeWeekends = baselineConfig.excludeWeekends || false;
-    const calculationMethod = baselineConfig.calculationMethod || 'mean';
-    const trimmedMeanPercentile = baselineConfig.trimmedMeanPercentile || 10;
-    const seasonalAdjustment = baselineConfig.seasonalAdjustment || false;
+    const excludeWeekends = baselineConfig.excludeWeekends ?? false;
+    const calculationMethod = baselineConfig.calculationMethod ?? 'mean';
+    const trimmedMeanPercentile = baselineConfig.trimmedMeanPercentile ?? 10;
+    const seasonalAdjustment = baselineConfig.seasonalAdjustment ?? false;
 
     return {
       windowDays,

@@ -8,8 +8,6 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { z } from 'zod';
-
 // Import validation modules
 import {
   schemas,
@@ -20,7 +18,6 @@ import {
   validateColumnName,
   validateConnectorConfig,
   sanitizers,
-  policies
 } from '../src/validation/index.js';
 
 // ==============================================
@@ -265,8 +262,8 @@ describe('RuntimeValidator - Phase 2 Validation', () => {
         password: 'pass'
       };
 
-      expect(() => validateConnectorConfig(validConfig)).not.toThrow();
-      expect(() => validateConnectorConfig({})).toThrow(ValidationException);
+      expect(() => { validateConnectorConfig(validConfig); }).not.toThrow();
+      expect(() => { validateConnectorConfig({}); }).toThrow(ValidationException);
     });
   });
 
@@ -465,8 +462,9 @@ describe('Validation Layer Integration', () => {
     const result = validator.validateConnectorConfig(postgresConfig, 'postgres');
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.host).toBe('localhost');
-      expect(result.data.ssl).toBe(true);
+      const data = result.data as { host: string; ssl: boolean };
+      expect(data.host).toBe('localhost');
+      expect(data.ssl).toBe(true);
     }
   });
 

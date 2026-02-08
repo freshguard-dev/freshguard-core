@@ -9,6 +9,7 @@ import type { DuckDBConnection } from '@duckdb/node-api';
 import { DuckDBInstance } from '@duckdb/node-api';
 import { BaseConnector } from './base-connector.js';
 import type { ConnectorConfig, TableSchema, SecurityConfig } from '../types/connector.js';
+import type { QueryResultRow } from '../types/driver-results.js';
 import type { SourceCredentials } from '../types.js';
 import {
   ConnectionError,
@@ -127,7 +128,7 @@ export class DuckDBConnector extends BaseConnector {
   /**
    * Execute a validated SQL query with security measures
    */
-  protected async executeQuery(sql: string): Promise<any[]> {
+  protected async executeQuery(sql: string): Promise<QueryResultRow[]> {
     return this.executeParameterizedQuery(sql, []);
   }
 
@@ -135,7 +136,7 @@ export class DuckDBConnector extends BaseConnector {
    * Execute a parameterized SQL query (DuckDB with manual parameter substitution)
    * Note: DuckDB node API has limited prepared statement support, so we use safe parameter substitution
    */
-  protected async executeParameterizedQuery(sql: string, parameters: any[] = []): Promise<any[]> {
+  protected async executeParameterizedQuery(sql: string, parameters: unknown[] = []): Promise<QueryResultRow[]> {
     await this.connect();
 
     if (!this.connection) {
@@ -171,7 +172,7 @@ export class DuckDBConnector extends BaseConnector {
         this.queryTimeout
       );
 
-      const rows = reader.getRowObjects();
+      const rows = reader.getRowObjects() as QueryResultRow[];
 
       // Validate result size for security
       this.validateResultSize(rows);
@@ -255,7 +256,7 @@ export class DuckDBConnector extends BaseConnector {
   /**
    * Helper method to merge debug configuration
    */
-  private mergeDebugConfig(debugConfig?: import('../types.js').DebugConfig) {
+  private mergeDebugConfig(debugConfig?: import('../types.js').DebugConfig): import('../types.js').DebugConfig {
     return {
       enabled: debugConfig?.enabled ?? (process.env.NODE_ENV === 'development'),
       exposeQueries: debugConfig?.exposeQueries ?? true,
@@ -325,11 +326,11 @@ export class DuckDBConnector extends BaseConnector {
       LIMIT $1
     `;
 
-    this.validateQuery(sql);
+    await this.validateQuery(sql);
 
     try {
       const result = await this.executeParameterizedQuery(sql, [this.maxRows]);
-      return result.map((row: any) => row.table_name).filter(Boolean);
+      return result.map((row) => String(row.table_name ?? row.TABLE_NAME ?? row.tablename ?? '')).filter(Boolean);
     } catch (error) {
       throw new QueryError(
         'Failed to list tables',
@@ -359,7 +360,7 @@ export class DuckDBConnector extends BaseConnector {
       LIMIT $2
     `;
 
-    this.validateQuery(sql);
+    await this.validateQuery(sql);
 
     try {
       const result = await this.executeParameterizedQuery(sql, [table, this.maxRows]);
@@ -371,9 +372,9 @@ export class DuckDBConnector extends BaseConnector {
       return {
         table,
         columns: result.map(row => ({
-          name: row.column_name,
-          type: this.mapDuckDBType(row.data_type),
-          nullable: row.is_nullable === 'YES'
+          name: String(row.column_name ?? ''),
+          type: this.mapDuckDBType(String(row.data_type ?? '')),
+          nullable: (row.is_nullable ?? row.IS_NULLABLE) === 'YES'
         }))
       };
     } catch (error) {
@@ -477,7 +478,7 @@ export class DuckDBConnector extends BaseConnector {
       'INTERVAL': 'interval'
     };
 
-    return typeMap[duckdbType.toUpperCase()] || 'unknown';
+    return typeMap[duckdbType.toUpperCase()] ?? 'unknown';
   }
 
   // ==============================================
@@ -492,7 +493,7 @@ export class DuckDBConnector extends BaseConnector {
     console.warn('Warning: connectLegacy is deprecated. Use constructor with ConnectorConfig instead.');
 
     // Convert legacy credentials to new format
-    const dbPath = credentials.connectionString || credentials.database || ':memory:';
+    const dbPath = credentials.connectionString ?? credentials.database ?? ':memory:';
 
     const config: ConnectorConfig = {
       host: 'localhost', // DuckDB is always local
@@ -560,7 +561,7 @@ export class DuckDBConnector extends BaseConnector {
 
       return {
         rowCount,
-        lastUpdate: lastUpdate || undefined
+        lastUpdate: lastUpdate ?? undefined
       };
     } catch (error) {
       throw new QueryError(

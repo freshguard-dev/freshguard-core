@@ -7,7 +7,7 @@
  * @license MIT
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 // Import resilience modules
 import {
@@ -19,14 +19,10 @@ import {
   createApiCircuitBreaker,
   RetryPolicy,
   RetryExhaustedError,
-  AttemptTimeoutError,
-  executeWithRetry,
   executeWithDatabaseRetry,
   DATABASE_RETRY_CONFIG,
   API_RETRY_CONFIG,
   TimeoutManager,
-  OperationTimeoutError,
-  OperationCancelledError,
   withTimeout,
   createDatabaseTimeout
 } from '../src/resilience/index.js';
@@ -45,12 +41,12 @@ function createEventuallySuccessfulFunction<T>(
 ): () => Promise<T> {
   let attempts = 0;
 
-  return async (): Promise<T> => {
+  return (): Promise<T> => {
     attempts++;
     if (attempts <= failureCount) {
-      throw new Error(`${errorMessage} (attempt ${attempts})`);
+      return Promise.reject(new Error(`${errorMessage} (attempt ${attempts})`));
     }
-    return successValue;
+    return Promise.resolve(successValue);
   };
 }
 
@@ -58,40 +54,8 @@ function createEventuallySuccessfulFunction<T>(
  * Create a function that always fails
  */
 function createAlwaysFailingFunction(errorMessage = 'Always fails'): () => Promise<never> {
-  return async (): Promise<never> => {
-    throw new Error(errorMessage);
-  };
-}
-
-/**
- * Create a function that takes a specified time to complete
- */
-function createTimedFunction<T>(
-  duration: number,
-  value: T,
-  signal?: AbortSignal
-): () => Promise<T> {
-  return async (): Promise<T> => {
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        resolve(value);
-      }, duration);
-
-      if (signal) {
-        const abortHandler = () => {
-          clearTimeout(timeout);
-          reject(new Error('Operation was aborted'));
-        };
-
-        if (signal.aborted) {
-          clearTimeout(timeout);
-          reject(new Error('Operation was aborted'));
-          return;
-        }
-
-        signal.addEventListener('abort', abortHandler);
-      }
-    });
+  return (): Promise<never> => {
+    return Promise.reject(new Error(errorMessage));
   };
 }
 
@@ -132,7 +96,7 @@ describe('Circuit Breaker - Phase 2 Resilience', () => {
       for (let i = 0; i < 3; i++) {
         try {
           await circuitBreaker.execute(failingFn);
-        } catch (error) {
+        } catch {
           // Expected failures
         }
       }
@@ -153,7 +117,7 @@ describe('Circuit Breaker - Phase 2 Resilience', () => {
       for (let i = 0; i < 3; i++) {
         try {
           await circuitBreaker.execute(failingFn);
-        } catch (error) {
+        } catch {
           // Expected failures
         }
       }
@@ -164,7 +128,7 @@ describe('Circuit Breaker - Phase 2 Resilience', () => {
       await sleep(150);
 
       // Next call should put circuit in HALF_OPEN state
-      const successFn = async () => 'success';
+      const successFn = () => Promise.resolve('success');
       const result = await circuitBreaker.execute(successFn);
 
       expect(result).toBe('success');
@@ -177,7 +141,7 @@ describe('Circuit Breaker - Phase 2 Resilience', () => {
       for (let i = 0; i < 3; i++) {
         try {
           await circuitBreaker.execute(failingFn);
-        } catch (error) {
+        } catch {
           // Expected failures
         }
       }
@@ -186,7 +150,7 @@ describe('Circuit Breaker - Phase 2 Resilience', () => {
       await sleep(150);
 
       // Execute successful calls to close circuit
-      const successFn = async () => 'success';
+      const successFn = () => Promise.resolve('success');
       await circuitBreaker.execute(successFn); // Circuit becomes HALF_OPEN
       await circuitBreaker.execute(successFn); // Should close circuit
 
@@ -200,7 +164,7 @@ describe('Circuit Breaker - Phase 2 Resilience', () => {
       for (let i = 0; i < 3; i++) {
         try {
           await circuitBreaker.execute(failingFn);
-        } catch (error) {
+        } catch {
           // Expected failures
         }
       }
@@ -209,14 +173,14 @@ describe('Circuit Breaker - Phase 2 Resilience', () => {
       await sleep(150);
 
       // First call puts circuit in HALF_OPEN, second call fails and trips it
-      const successFn = async () => 'success';
+      const successFn = () => Promise.resolve('success');
       await circuitBreaker.execute(successFn);
 
       expect(circuitBreaker.getState()).toBe(CircuitBreakerState.HALF_OPEN);
 
       try {
         await circuitBreaker.execute(failingFn);
-      } catch (error) {
+      } catch {
         // Expected failure
       }
 
@@ -226,7 +190,7 @@ describe('Circuit Breaker - Phase 2 Resilience', () => {
 
   describe('Statistics tracking', () => {
     it('should track execution statistics correctly', async () => {
-      const successFn = async () => 'success';
+      const successFn = () => Promise.resolve('success');
       const failingFn = createAlwaysFailingFunction();
 
       // Execute some successful calls
@@ -236,7 +200,7 @@ describe('Circuit Breaker - Phase 2 Resilience', () => {
       // Execute some failing calls
       try {
         await circuitBreaker.execute(failingFn);
-      } catch (error) {
+      } catch {
         // Expected failure
       }
 
@@ -254,7 +218,7 @@ describe('Circuit Breaker - Phase 2 Resilience', () => {
       for (let i = 0; i < 3; i++) {
         try {
           await circuitBreaker.execute(failingFn);
-        } catch (error) {
+        } catch {
           // Expected failures
         }
       }
@@ -284,22 +248,22 @@ describe('Circuit Breaker - Phase 2 Resilience', () => {
         }
       });
 
-      const validationError = async () => {
-        throw new Error('validation failed');
+      const validationError = () => {
+        return Promise.reject(new Error('validation failed'));
       };
-      const networkError = async () => {
-        throw new Error('network error');
+      const networkError = () => {
+        return Promise.reject(new Error('network error'));
       };
 
       // Validation errors shouldn't trip the circuit
       try {
         await filteredCircuit.execute(validationError);
-      } catch (error) {
+      } catch {
         // Expected
       }
       try {
         await filteredCircuit.execute(validationError);
-      } catch (error) {
+      } catch {
         // Expected
       }
 
@@ -308,12 +272,12 @@ describe('Circuit Breaker - Phase 2 Resilience', () => {
       // But network errors should trip it
       try {
         await filteredCircuit.execute(networkError);
-      } catch (error) {
+      } catch {
         // Expected
       }
       try {
         await filteredCircuit.execute(networkError);
-      } catch (error) {
+      } catch {
         // Expected
       }
 
@@ -370,8 +334,8 @@ describe('Circuit Breaker - Phase 2 Resilience', () => {
       const circuit2 = registry.getOrCreate('circuit2', { failureThreshold: 3, successThreshold: 2, recoveryTimeout: 1000 });
 
       // Execute some operations
-      await circuit1.execute(async () => 'success1');
-      await circuit2.execute(async () => 'success2');
+      await circuit1.execute(() => Promise.resolve('success1'));
+      await circuit2.execute(() => Promise.resolve('success2'));
 
       const allStats = registry.getAllStats();
       expect(allStats.circuit1.totalCalls).toBe(1);
@@ -400,7 +364,7 @@ describe('Retry Policy - Phase 2 Resilience', () => {
 
   describe('Basic retry behavior', () => {
     it('should succeed without retry if function succeeds first time', async () => {
-      const successFn = async () => 'success';
+      const successFn = () => Promise.resolve('success');
       const result = await retryPolicy.execute(successFn);
 
       expect(result).toBe('success');
@@ -445,7 +409,7 @@ describe('Retry Policy - Phase 2 Resilience', () => {
       const startTime = Date.now();
       try {
         await policy.execute(alwaysFails);
-      } catch (error) {
+      } catch {
         // Expected
       }
       const endTime = Date.now();
@@ -468,22 +432,22 @@ describe('Retry Policy - Phase 2 Resilience', () => {
       });
 
       let attempts = 0;
-      const permanentFailure = async () => {
+      const permanentFailure = () => {
         attempts++;
-        throw new Error('permanent failure');
+        return Promise.reject(new Error('permanent failure'));
       };
 
       try {
         await selectiveRetry.execute(permanentFailure);
-      } catch (error) {
+      } catch {
         // Should fail immediately without retry
         expect(attempts).toBe(1);
       }
     });
 
     it('should use database retry configuration correctly', async () => {
-      const databaseError = async () => {
-        throw new Error('connection timeout');
+      const databaseError = () => {
+        return Promise.reject(new Error('connection timeout'));
       };
 
       // This should retry because it's a connection error
@@ -497,8 +461,8 @@ describe('Retry Policy - Phase 2 Resilience', () => {
     });
 
     it('should handle API retry configuration correctly', async () => {
-      const apiError = async () => {
-        throw new Error('server error status 500');
+      const apiError = () => {
+        return Promise.reject(new Error('server error status 500'));
       };
 
       const apiConfig = new RetryPolicy(API_RETRY_CONFIG);
@@ -543,7 +507,7 @@ describe('Retry Policy - Phase 2 Resilience', () => {
 
   describe('Statistics', () => {
     it('should track comprehensive statistics', async () => {
-      const successFn = async () => 'success';
+      const successFn = () => Promise.resolve('success');
       const eventualSuccess = createEventuallySuccessfulFunction(1, 'success');
       const alwaysFails = createAlwaysFailingFunction();
 
@@ -553,7 +517,7 @@ describe('Retry Policy - Phase 2 Resilience', () => {
 
       try {
         await retryPolicy.execute(alwaysFails);
-      } catch (error) {
+      } catch {
         // Expected
       }
 
@@ -576,8 +540,8 @@ describe('Timeout Manager - Phase 2 Resilience', () => {
     it('should complete successfully within timeout', async () => {
       const manager = new TimeoutManager({ duration: 100, name: 'TestTimeout' });
 
-      const quickFunction = async (signal: AbortSignal) => {
-        return 'success';
+      const quickFunction = (_signal: AbortSignal) => {
+        return Promise.resolve('success');
       };
 
       const result = await manager.execute(quickFunction);
@@ -637,7 +601,7 @@ describe('Timeout Manager - Phase 2 Resilience', () => {
 
       try {
         await manager.execute(cancellableFunction);
-      } catch (error) {
+      } catch {
         expect(operationCancelled).toBe(true);
       }
     });
@@ -669,7 +633,7 @@ describe('Timeout Manager - Phase 2 Resilience', () => {
 
   describe('Static convenience methods', () => {
     it('should execute with static timeout', async () => {
-      const quickFunction = async (signal: AbortSignal) => 'success';
+      const quickFunction = (_signal: AbortSignal) => Promise.resolve('success');
 
       const result = await withTimeout(quickFunction, 100, 'StaticTest');
       expect(result).toBe('success');
@@ -704,7 +668,7 @@ describe('Timeout Manager - Phase 2 Resilience', () => {
       const parent = new TimeoutManager({ duration: 200, name: 'ParentTimeout' });
       const child = parent.createChild({ duration: 100, name: 'ChildTimeout' });
 
-      const quickFunction = async (signal: AbortSignal) => 'success';
+      const quickFunction = (_signal: AbortSignal) => Promise.resolve('success');
 
       const result = await child.execute(quickFunction);
       expect(result).toBe('success');
@@ -740,7 +704,7 @@ describe('Timeout Manager - Phase 2 Resilience', () => {
   });
 
   describe('Factory functions', () => {
-    it('should create database timeout with appropriate settings', async () => {
+    it('should create database timeout with appropriate settings', () => {
       const dbTimeout = createDatabaseTimeout('query');
 
       expect(dbTimeout.getConfig().duration).toBe(30000);
@@ -750,7 +714,7 @@ describe('Timeout Manager - Phase 2 Resilience', () => {
     it('should work with database operations', async () => {
       const dbTimeout = createDatabaseTimeout('connection');
 
-      const dbOperation = async (signal: AbortSignal) => {
+      const dbOperation = async (_signal: AbortSignal) => {
         // Simulate database operation
         await sleep(10);
         return { rows: [{ id: 1, name: 'test' }] };
@@ -765,7 +729,7 @@ describe('Timeout Manager - Phase 2 Resilience', () => {
     it('should track detailed execution statistics', async () => {
       const manager = new TimeoutManager({ duration: 100, name: 'StatsTest' });
 
-      const quickFunction = async (signal: AbortSignal) => {
+      const quickFunction = async (_signal: AbortSignal) => {
         await sleep(25);
         return 'success';
       };
@@ -794,7 +758,7 @@ describe('Timeout Manager - Phase 2 Resilience', () => {
       // Execute timeout operation
       try {
         await manager.execute(slowFunction);
-      } catch (error) {
+      } catch {
         // Expected timeout
       }
 
@@ -810,7 +774,7 @@ describe('Timeout Manager - Phase 2 Resilience', () => {
     it('should provide active timeout information', async () => {
       const manager = new TimeoutManager({ duration: 200, name: 'ActiveTest' });
 
-      const longFunction = async (signal: AbortSignal) => {
+      const longFunction = async (_signal: AbortSignal) => {
         const activeTimeout = manager.getActiveTimeout();
         expect(activeTimeout).toBeTruthy();
         expect(activeTimeout!.name).toBe('ActiveTest');
@@ -849,12 +813,12 @@ describe('Resilience Layer Integration', () => {
     });
 
     let attempts = 0;
-    const eventuallySuccessful = async () => {
+    const eventuallySuccessful = () => {
       attempts++;
       if (attempts <= 3) {
-        throw new Error(`Failure ${attempts}`);
+        return Promise.reject(new Error(`Failure ${attempts}`));
       }
-      return 'success';
+      return Promise.resolve('success');
     };
 
     // Wrap with circuit breaker inside retry (so retry can recover from circuit issues)
@@ -919,12 +883,12 @@ describe('Resilience Layer Integration', () => {
     });
 
     let attempts = 0;
-    const complexOperation = async (signal: AbortSignal) => {
+    const complexOperation = (_signal: AbortSignal) => {
       attempts++;
       if (attempts === 1) {
-        throw new Error('First failure');
+        return Promise.reject(new Error('First failure'));
       }
-      return 'success';
+      return Promise.resolve('success');
     };
 
     // Combine all patterns

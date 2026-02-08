@@ -181,7 +181,7 @@ const DEFAULT_RISK_FACTORS: RiskFactor[] = [
     blocking: true
   },
   {
-    pattern: /\bor\s+\'.*?\'\s*=\s*\'.*?\'/i,
+    pattern: /\bor\s+'.*?'\s*=\s*'.*?'/i,
     riskScore: 85,
     description: 'Potential SQL injection with string comparison',
     blocking: true
@@ -308,9 +308,9 @@ class SimpleSQLParser {
    */
   private static countTables(sql: string): number {
     // Count FROM clauses
-    const fromMatches = sql.match(/\bfrom\s+[\w\.]+/g) || [];
+    const fromMatches = sql.match(/\bfrom\s+[\w.]+/g) ?? [];
     // Count JOIN clauses
-    const joinMatches = sql.match(/\bjoin\s+[\w\.]+/g) || [];
+    const joinMatches = sql.match(/\bjoin\s+[\w.]+/g) ?? [];
 
     return fromMatches.length + joinMatches.length;
   }
@@ -319,7 +319,7 @@ class SimpleSQLParser {
    * Count number of joins
    */
   private static countJoins(sql: string): number {
-    const joinMatches = sql.match(/\b(inner\s+join|left\s+join|right\s+join|full\s+join|join)\b/g) || [];
+    const joinMatches = sql.match(/\b(inner\s+join|left\s+join|right\s+join|full\s+join|join)\b/g) ?? [];
     return joinMatches.length;
   }
 
@@ -365,7 +365,7 @@ export class QueryComplexityAnalyzer {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.riskFactors = [
       ...DEFAULT_RISK_FACTORS,
-      ...(config.customRiskFactors || [])
+      ...(config.customRiskFactors ?? [])
     ];
   }
 

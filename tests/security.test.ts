@@ -658,8 +658,8 @@ describe('Legacy API Security', () => {
     const connector = new PostgresConnector(config);
 
     // Using legacy method should show warning
-    expect(async () => {
-      await connector.connectLegacy({
+    expect(() => {
+      void connector.connectLegacy({
         host: 'localhost',
         port: 5432,
         database: 'test',

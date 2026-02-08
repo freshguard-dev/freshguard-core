@@ -49,3 +49,15 @@ export interface ColumnMetadataRow extends QueryResultRow {
   is_nullable?: string;
   IS_NULLABLE?: string;
 }
+
+/**
+ * Safely convert an unknown database value to a string.
+ * Handles the common pattern of accessing unknown values from QueryResultRow.
+ */
+export function rowString(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (value == null) return '';
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return String(value);
+  if (value instanceof Date) return value.toISOString();
+  return JSON.stringify(value);
+}

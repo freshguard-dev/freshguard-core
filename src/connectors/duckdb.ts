@@ -9,7 +9,7 @@ import type { DuckDBConnection } from '@duckdb/node-api';
 import { DuckDBInstance } from '@duckdb/node-api';
 import { BaseConnector } from './base-connector.js';
 import type { ConnectorConfig, TableSchema, SecurityConfig } from '../types/connector.js';
-import type { QueryResultRow } from '../types/driver-results.js';
+import { type QueryResultRow, rowString } from '../types/driver-results.js';
 import type { SourceCredentials } from '../types.js';
 import {
   ConnectionError,
@@ -91,6 +91,7 @@ export class DuckDBConnector extends BaseConnector {
         // For file-based databases, check if file exists and is accessible
         // Note: DuckDB will create the file if it doesn't exist, but we want to validate the directory
         const dirPath = this.databasePath.substring(0, this.databasePath.lastIndexOf('/'));
+        // eslint-disable-next-line security/detect-non-literal-fs-filename -- dirPath is derived from validated databasePath config
         if (dirPath && !existsSync(dirPath)) {
           throw new ConnectionError('Database directory does not exist');
         }
@@ -106,7 +107,10 @@ export class DuckDBConnector extends BaseConnector {
 
       // Get a connection from the instance
       this.connection = await this.executeWithTimeout(
-        () => this.instance!.connect(),
+        () => {
+          if (!this.instance) throw new ConnectionError('DuckDB instance not available');
+          return this.instance.connect();
+        },
         this.connectionTimeout
       );
 
@@ -168,7 +172,10 @@ export class DuckDBConnector extends BaseConnector {
       }
 
       const reader = await this.executeWithTimeout(
-        () => this.connection!.runAndReadAll(finalSql),
+        () => {
+          if (!this.connection) throw new ConnectionError('DuckDB connection not available');
+          return this.connection.runAndReadAll(finalSql);
+        },
         this.queryTimeout
       );
 
@@ -222,7 +229,10 @@ export class DuckDBConnector extends BaseConnector {
       const sql = 'SELECT 1 as test';
 
       await this.executeWithTimeout(
-        () => this.connection!.run(sql),
+        () => {
+          if (!this.connection) throw new ConnectionError('DuckDB connection not available');
+          return this.connection.run(sql);
+        },
         this.connectionTimeout
       );
 
@@ -330,7 +340,7 @@ export class DuckDBConnector extends BaseConnector {
 
     try {
       const result = await this.executeParameterizedQuery(sql, [this.maxRows]);
-      return result.map((row) => String(row.table_name ?? row.TABLE_NAME ?? row.tablename ?? '')).filter(Boolean);
+      return result.map((row) => rowString(row.table_name ?? row.TABLE_NAME ?? row.tablename)).filter(Boolean);
     } catch (error) {
       throw new QueryError(
         'Failed to list tables',
@@ -372,8 +382,8 @@ export class DuckDBConnector extends BaseConnector {
       return {
         table,
         columns: result.map(row => ({
-          name: String(row.column_name ?? ''),
-          type: this.mapDuckDBType(String(row.data_type ?? '')),
+          name: rowString(row.column_name),
+          type: this.mapDuckDBType(rowString(row.data_type)),
           nullable: (row.is_nullable ?? row.IS_NULLABLE) === 'YES'
         }))
       };
@@ -422,6 +432,7 @@ export class DuckDBConnector extends BaseConnector {
   /**
    * Close the database connection
    */
+  // eslint-disable-next-line @typescript-eslint/require-await -- must match abstract close(): Promise<void>
   async close(): Promise<void> {
     try {
       // Close connection first
@@ -577,6 +588,7 @@ export class DuckDBConnector extends BaseConnector {
    * Legacy query method for backward compatibility
    * @deprecated Direct SQL queries are not allowed for security reasons
    */
+  // eslint-disable-next-line @typescript-eslint/require-await -- deprecated stub that always throws
   async query<T = unknown>(_sql: string): Promise<T[]> {
     throw new Error(
       'Direct SQL queries are not allowed for security reasons. Use specific methods like getRowCount(), getMaxTimestamp(), etc.'

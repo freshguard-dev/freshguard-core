@@ -8,7 +8,7 @@
 import * as snowflake from 'snowflake-sdk';
 import { BaseConnector } from './base-connector.js';
 import type { ConnectorConfig, TableSchema, SecurityConfig } from '../types/connector.js';
-import type { QueryResultRow } from '../types/driver-results.js';
+import { type QueryResultRow, rowString } from '../types/driver-results.js';
 import type { SourceCredentials } from '../types.js';
 import {
   ConnectionError,
@@ -107,7 +107,8 @@ export class SnowflakeConnector extends BaseConnector {
       // Connect with timeout protection
       await this.executeWithTimeout(
         () => new Promise<void>((resolve, reject) => {
-          this.connection!.connect((err) => {
+          if (!this.connection) { reject(new Error('Snowflake connection not initialized')); return; }
+          this.connection.connect((err) => {
             if (err) {
               reject(new Error(`Snowflake connection failed: ${err.message}`));
             } else {
@@ -149,7 +150,8 @@ export class SnowflakeConnector extends BaseConnector {
       if (parameters.length > 0) {
         for (let i = 0; i < parameters.length; i++) {
           const placeholder = `$${i + 1}`;
-          finalSql = finalSql.replace(new RegExp(`\\${placeholder}\\b`, 'g'), '?');
+          // eslint-disable-next-line security/detect-non-literal-regexp -- placeholder is constructed from loop index, not user input
+        finalSql = finalSql.replace(new RegExp(`\\${placeholder}\\b`, 'g'), '?');
         }
       }
 
@@ -171,7 +173,8 @@ export class SnowflakeConnector extends BaseConnector {
             executeOptions.binds = parameters;
           }
 
-          this.connection!.execute(executeOptions as unknown as snowflake.StatementOption);
+          if (!this.connection) { reject(new Error('Snowflake connection not available')); return; }
+          this.connection.execute(executeOptions as unknown as snowflake.StatementOption);
         }),
         this.queryTimeout
       );
@@ -342,7 +345,7 @@ export class SnowflakeConnector extends BaseConnector {
 
     try {
       const result = await this.executeParameterizedQuery(sql, [this.schema.toUpperCase(), this.maxRows]);
-      return result.map((row) => String(row.TABLE_NAME ?? row.table_name ?? row.tablename ?? '')).filter(Boolean);
+      return result.map((row) => rowString(row.TABLE_NAME ?? row.table_name ?? row.tablename)).filter(Boolean);
     } catch (error) {
       throw new QueryError(
         'Failed to list tables',
@@ -388,8 +391,8 @@ export class SnowflakeConnector extends BaseConnector {
       return {
         table,
         columns: result.map(row => ({
-          name: String(row.COLUMN_NAME ?? row.column_name ?? ''),
-          type: this.mapSnowflakeType(String(row.DATA_TYPE ?? row.data_type ?? '')),
+          name: rowString(row.COLUMN_NAME ?? row.column_name),
+          type: this.mapSnowflakeType(rowString(row.DATA_TYPE ?? row.data_type)),
           nullable: (row.IS_NULLABLE ?? row.is_nullable) === 'YES'
         }))
       };
@@ -440,7 +443,8 @@ export class SnowflakeConnector extends BaseConnector {
     if (this.connection) {
       try {
         await new Promise<void>((resolve) => {
-          this.connection!.destroy((err) => {
+          if (!this.connection) { resolve(); return; }
+          this.connection.destroy((err) => {
             if (err) {
               console.warn('Warning: Error closing Snowflake connection:', ErrorHandler.getUserMessage(err));
             }
@@ -631,6 +635,7 @@ export class SnowflakeConnector extends BaseConnector {
    * Legacy query method for backward compatibility
    * @deprecated Direct SQL queries are not allowed for security reasons
    */
+  // eslint-disable-next-line @typescript-eslint/require-await -- deprecated stub that always throws
   async query<T = unknown>(_sql: string): Promise<T[]> {
     throw new Error(
       'Direct SQL queries are not allowed for security reasons. Use specific methods like getRowCount(), getMaxTimestamp(), etc.'

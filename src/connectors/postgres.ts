@@ -93,7 +93,7 @@ export class PostgresConnector extends BaseConnector {
    * Execute a parameterized SQL query using prepared statements
    */
   protected async executeParameterizedQuery(sql: string, parameters: unknown[] = []): Promise<QueryResultRow[]> {
-    await this.connect();
+    this.connect();
 
     if (!this.client) {
       throw new ConnectionError('Database connection not available');
@@ -422,6 +422,7 @@ export class PostgresConnector extends BaseConnector {
    * Legacy connect method for backward compatibility
    * @deprecated Use constructor with ConnectorConfig instead
    */
+  // eslint-disable-next-line @typescript-eslint/require-await -- deprecated legacy method, kept async for API compatibility
   async connectLegacy(credentials: SourceCredentials): Promise<void> {
     console.warn('Warning: connectLegacy is deprecated. Use constructor with ConnectorConfig instead.');
 
@@ -438,7 +439,7 @@ export class PostgresConnector extends BaseConnector {
     // Validate and reconnect
     validateConnectorConfig(config);
     this.config = { ...this.config, ...config };
-    await this.connect();
+    this.connect();
   }
 
   /**
@@ -504,6 +505,7 @@ export class PostgresConnector extends BaseConnector {
    * Legacy query method for backward compatibility
    * @deprecated Direct SQL queries are not allowed for security reasons
    */
+  // eslint-disable-next-line @typescript-eslint/require-await -- deprecated stub that always throws
   async query<T = unknown>(_sql: string): Promise<T[]> {
     throw new Error(
       'Direct SQL queries are not allowed for security reasons. Use specific methods like getRowCount(), getMaxTimestamp(), etc.'

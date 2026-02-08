@@ -8,7 +8,7 @@
 import { BigQuery } from '@google-cloud/bigquery';
 import { BaseConnector } from './base-connector.js';
 import type { ConnectorConfig, TableSchema, SecurityConfig } from '../types/connector.js';
-import type { QueryResultRow } from '../types/driver-results.js';
+import { type QueryResultRow, rowString } from '../types/driver-results.js';
 import type { SourceCredentials } from '../types.js';
 import {
   ConnectionError,
@@ -438,8 +438,9 @@ export class BigQueryConnector extends BaseConnector {
         const tableRef = this.client.dataset(dataset).table(tableId);
         const [metadata] = await tableRef.getMetadata() as unknown as [Record<string, unknown>];
 
-        if (metadata.lastModifiedTime) {
-          return new Date(parseInt(String(metadata.lastModifiedTime)));
+        const lastModifiedTime = metadata.lastModifiedTime;
+        if (lastModifiedTime) {
+          return new Date(parseInt(rowString(lastModifiedTime), 10));
         }
       }
     } catch {
@@ -640,7 +641,8 @@ export class BigQueryConnector extends BaseConnector {
    * Legacy query method for backward compatibility
    * @deprecated Direct SQL queries are not allowed for security reasons
    */
-  query<T = unknown>(_sql: string): Promise<T[]> {
+  // eslint-disable-next-line @typescript-eslint/require-await -- deprecated stub that always throws
+  async query<T = unknown>(_sql: string): Promise<T[]> {
     throw new Error(
       'Direct SQL queries are not allowed for security reasons. Use specific methods like getRowCount(), getMaxTimestamp(), etc.'
     );

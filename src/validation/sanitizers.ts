@@ -66,7 +66,7 @@ const STRICT_POLICY: SanitizationPolicy = {
   throwOnEmpty: true,
   allowUnicode: false,
   customPatterns: [
-    /[^\w\s\-\.]/g, // Only allow alphanumeric, whitespace, hyphen, dot
+    /[^\w\s\-.]/g, // Only allow alphanumeric, whitespace, hyphen, dot
     /\s{2,}/g       // Collapse multiple whitespace
   ]
 };
@@ -106,7 +106,16 @@ export function sanitizeString(
   const activePolicy: SanitizationPolicy = { ...DEFAULT_POLICY, ...policy };
 
   // Convert to string
-  let value = String(input ?? '');
+  let value: string;
+  if (typeof input === 'string') {
+    value = input;
+  } else if (input == null) {
+    value = '';
+  } else if (typeof input === 'number' || typeof input === 'boolean' || typeof input === 'bigint') {
+    value = String(input);
+  } else {
+    value = JSON.stringify(input);
+  }
   const originalLength = value.length;
   const modifications: string[] = [];
 
@@ -126,6 +135,7 @@ export function sanitizeString(
   // Remove control characters
   if (activePolicy.removeControlCharacters) {
     const beforeControl = value;
+    // eslint-disable-next-line no-control-regex -- Intentional: sanitizing control characters
     value = value.replace(/[\x00-\x1F\x7F]/g, '');
     if (value !== beforeControl) {
       modifications.push('Removed control characters');
@@ -300,7 +310,7 @@ export function sanitizeJson(input: unknown): SanitizationResult {
   if (result.value) {
     try {
       JSON.parse(result.value);
-    } catch (error) {
+    } catch {
       throw new Error('Invalid JSON format after sanitization');
     }
   }
@@ -344,7 +354,7 @@ export function sanitizeBatch(
         value: '',
         wasModified: false,
         modifications: [`Error: ${error instanceof Error ? error.message : 'Unknown error'}`],
-        originalLength: String(input ?? '').length,
+        originalLength: (typeof input === 'string' ? input : (input == null ? '' : (typeof input === 'number' || typeof input === 'boolean' || typeof input === 'bigint' ? String(input) : JSON.stringify(input)))).length,
         finalLength: 0
       });
     }
@@ -372,10 +382,10 @@ export function containsDangerousPatterns(input: string): {
   patterns: string[]
 } {
   const dangerousPatterns = [
-    { name: 'SQL Injection', pattern: /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|EXEC|EXECUTE)\b)|(\-\-)|(\;)|(\'\s*(OR|AND)\s*\w+\s*=)/i },
+    { name: 'SQL Injection', pattern: /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|EXEC|EXECUTE)\b)|(--)|([;])|('{1}\s*(OR|AND)\s*\w+\s*=)/i },
     { name: 'Script Injection', pattern: /<script[\s\S]*?>[\s\S]*?<\/script>/i },
-    { name: 'Command Injection', pattern: /(\||\&\&|\|\||\;)\s*(rm|del|format|cat|type|echo|curl|wget|powershell|cmd|bash|sh)/i },
-    { name: 'Path Traversal', pattern: /(\.\.[\/\\])|(\.\.[\/\\].*[\/\\])/i },
+    { name: 'Command Injection', pattern: /([|]|&&|\|\||[;])\s*(rm|del|format|cat|type|echo|curl|wget|powershell|cmd|bash|sh)/i },
+    { name: 'Path Traversal', pattern: /(\.\.[/\\])|(\.\.[/\\].*[/\\])/i },
     { name: 'XSS Patterns', pattern: /(javascript\s*:)|(on\w+\s*=)|(expression\s*\()/i }
   ];
 
@@ -400,10 +410,12 @@ export function escapeForSql(input: string): string {
   return input
     .replace(/'/g, "''")     // Escape single quotes
     .replace(/\\/g, '\\\\')   // Escape backslashes
-    .replace(/\x00/g, '\\0')  // Escape null bytes
+    // eslint-disable-next-line no-control-regex -- Intentional: escaping null bytes for SQL safety
+    .replace(/\x00/g, '\\0')
     .replace(/\n/g, '\\n')    // Escape newlines
     .replace(/\r/g, '\\r')    // Escape carriage returns
-    .replace(/\x1a/g, '\\Z'); // Escape ctrl+Z
+    // eslint-disable-next-line no-control-regex -- Intentional: escaping ctrl+Z for SQL safety
+    .replace(/\x1a/g, '\\Z');
 }
 
 /**

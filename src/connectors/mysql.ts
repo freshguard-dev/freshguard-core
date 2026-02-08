@@ -8,7 +8,7 @@
 import mysql from 'mysql2/promise';
 import { BaseConnector } from './base-connector.js';
 import type { ConnectorConfig, TableSchema, SecurityConfig } from '../types/connector.js';
-import type { QueryResultRow } from '../types/driver-results.js';
+import { type QueryResultRow, rowString } from '../types/driver-results.js';
 import type { SourceCredentials } from '../types.js';
 import {
   ConnectionError,
@@ -103,7 +103,8 @@ export class MySQLConnector extends BaseConnector {
       const result = await this.executeWithTimeout(
         async () => {
           // Use execute for parameterized queries
-          const [rows] = await this.connection!.execute(sql, parameters);
+          if (!this.connection) throw new ConnectionError('Database connection not available');
+          const [rows] = await this.connection.execute(sql, parameters);
           return (Array.isArray(rows) ? rows : [rows]) as Record<string, unknown>[];
         },
         this.queryTimeout
@@ -159,7 +160,8 @@ export class MySQLConnector extends BaseConnector {
 
       await this.executeWithTimeout(
         async () => {
-          const [rows] = await this.connection!.execute(sql);
+          if (!this.connection) throw new ConnectionError('Database connection not available');
+          const [rows] = await this.connection.execute(sql);
           return rows;
         },
         this.connectionTimeout
@@ -255,7 +257,7 @@ export class MySQLConnector extends BaseConnector {
 
     try {
       const result = await this.executeParameterizedQuery(sql, [this.config.database, this.maxRows]);
-      return result.map((row) => String(row.table_name ?? row.TABLE_NAME ?? row.tablename ?? '')).filter(Boolean);
+      return result.map((row) => rowString(row.table_name ?? row.TABLE_NAME ?? row.tablename)).filter(Boolean);
     } catch (error) {
       throw new QueryError(
         'Failed to list tables',
@@ -297,8 +299,8 @@ export class MySQLConnector extends BaseConnector {
       return {
         table,
         columns: result.map(row => ({
-          name: String(row.column_name ?? row.COLUMN_NAME ?? ''),
-          type: this.mapMySQLType(String(row.data_type ?? row.DATA_TYPE ?? '')),
+          name: rowString(row.column_name ?? row.COLUMN_NAME),
+          type: this.mapMySQLType(rowString(row.data_type ?? row.DATA_TYPE)),
           nullable: (row.is_nullable ?? row.IS_NULLABLE) === 'YES'
         }))
       };
@@ -347,7 +349,7 @@ export class MySQLConnector extends BaseConnector {
       const result = await this.executeParameterizedQuery(sql, [this.config.database, table]);
 
       if (result.length > 0 && result[0]?.last_modified) {
-        return new Date(String(result[0].last_modified));
+        return new Date(rowString(result[0].last_modified));
       }
     } catch {
       // Information schema query failed, return null
@@ -538,6 +540,7 @@ export class MySQLConnector extends BaseConnector {
    * Legacy query method for backward compatibility
    * @deprecated Direct SQL queries are not allowed for security reasons
    */
+  // eslint-disable-next-line @typescript-eslint/require-await -- deprecated stub that always throws
   async query<T = unknown>(_sql: string): Promise<T[]> {
     throw new Error(
       'Direct SQL queries are not allowed for security reasons. Use specific methods like getRowCount(), getMaxTimestamp(), etc.'

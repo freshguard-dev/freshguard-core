@@ -469,12 +469,12 @@ describe('SQL Query Generation Validation', () => {
         expect(query).not.toMatch(/OR\s*$/);
       });
 
-      incompleteQueries.forEach((query) => {
+      incompleteQueries.forEach((query, idx) => {
         const isIncomplete =
           (/WHERE\s*$/.exec(query)) ??
           (/AND\s*$/.exec(query)) ??
           (/OR\s*$/.exec(query));
-        expect(isIncomplete).toBeTruthy(`Query ${index + 1} should be detected as incomplete: ${query}`);
+        expect(isIncomplete).toBeTruthy(`Query ${idx + 1} should be detected as incomplete: ${query}`);
       });
     });
   });

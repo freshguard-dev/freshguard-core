@@ -15,7 +15,7 @@ import type {
   SecurityConfig
 } from '../types/connector.js';
 import { DEFAULT_SECURITY_CONFIG } from '../types/connector.js';
-import type { QueryResultRow } from '../types/driver-results.js';
+import { type QueryResultRow, rowString } from '../types/driver-results.js';
 
 import {
   SecurityError,
@@ -580,7 +580,7 @@ export abstract class BaseConnector implements Connector {
               throw new Error('No result returned');
             }
 
-            const count = parseInt(String((result[0].count ?? '0') as string | number), 10);
+            const count = parseInt(rowString(result[0].count ?? '0'), 10);
             const finalCount = isNaN(count) ? 0 : count;
 
             if (this.enableDetailedLogging) {
@@ -648,7 +648,7 @@ export abstract class BaseConnector implements Connector {
               return null;
             }
 
-            const finalDate = maxDate instanceof Date ? maxDate : new Date(String(maxDate as string | number));
+            const finalDate = maxDate instanceof Date ? maxDate : new Date(rowString(maxDate));
 
             if (this.enableDetailedLogging) {
               this.logger.debug('Retrieved max timestamp', {
@@ -707,7 +707,7 @@ export abstract class BaseConnector implements Connector {
         return null;
       }
 
-      const finalDate = minDate instanceof Date ? minDate : new Date(String(minDate as string | number));
+      const finalDate = minDate instanceof Date ? minDate : new Date(rowString(minDate));
 
       if (this.enableDetailedLogging) {
         this.logger.debug('Retrieved min timestamp', {

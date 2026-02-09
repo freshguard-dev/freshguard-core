@@ -230,7 +230,7 @@ describe('DuckDB Integration Tests', () => {
     if (isAvailable && connector) {
       try {
         await connector.close();
-      } catch (error) {
+      } catch {
         // Ignore cleanup errors
       }
     }

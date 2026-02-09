@@ -58,8 +58,8 @@ export async function checkFreshness(
     // Validate input parameters for security
     validateFreshnessRule(rule);
 
-    const timestampColumn = rule.timestampColumn || 'updated_at';
-    const toleranceMinutes = rule.toleranceMinutes || 60;
+    const timestampColumn = rule.timestampColumn ?? 'updated_at';
+    const toleranceMinutes = rule.toleranceMinutes ?? 60;
 
     // Validate table and column names to prevent SQL injection
     validateTableName(rule.tableName);
@@ -73,7 +73,7 @@ export async function checkFreshness(
     // Execute freshness check with timeout protection
     const queryResult = await executeWithTimeout(
       () => executeFreshnessQuery(connector, rule.tableName, timestampColumn, debugConfig, debugFactory),
-      config?.timeoutMs || 30000, // Use config timeout or default
+      config?.timeoutMs ?? 30000, // Use config timeout or default
       'Freshness check query timeout'
     );
 
@@ -205,7 +205,7 @@ export async function checkFreshness(
 
     // Add debug information if available
     if (debugConfig.enabled && error instanceof Error && 'debug' in error) {
-      result.debug = (error as any).debug;
+      result.debug = (error as { debug: import('../types.js').DebugInfo }).debug;
     }
 
     return result;
@@ -300,7 +300,7 @@ async function executeFreshnessQuery(
   timestampColumn: string,
   debugConfig: DebugConfig,
   debugFactory: DebugErrorFactory
-): Promise<{ rowCount: number; lastUpdate: Date | null; row: any }> {
+): Promise<{ rowCount: number; lastUpdate: Date | null; row: Record<string, unknown> }> {
   const startTime = performance.now();
 
   const queryContext: QueryContext = {
@@ -385,7 +385,7 @@ async function executeWithTimeout<T>(
 function createSecureCheckResult(status: CheckResult['status'], data: Partial<CheckResult>): CheckResult {
   return {
     status,
-    executedAt: data.executedAt || new Date(),
+    executedAt: data.executedAt ?? new Date(),
     executionDurationMs: data.executionDurationMs,
     ...data
   };

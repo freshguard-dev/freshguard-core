@@ -12,7 +12,7 @@ import { BigQueryConnector } from '../src/connectors/bigquery.js';
 import { SnowflakeConnector } from '../src/connectors/snowflake.js';
 import type { ConnectorConfig } from '../src/types/connector.js';
 import { DEFAULT_SECURITY_CONFIG } from '../src/types/connector.js';
-import { SecurityError } from '../src/errors/index.js';
+
 
 // Mock configuration for testing - these won't actually connect
 const mockPostgresConfig: ConnectorConfig = {
@@ -63,6 +63,7 @@ const testSecurityConfig = {
   connectionTimeout: 30000,
   queryTimeout: 10000,
   maxRows: 1000,
+  /* eslint-disable security/detect-unsafe-regex */
   allowedQueryPatterns: [
     // FreshGuard Core monitoring patterns (v0.9.1+) - Updated to handle all whitespace and quoted identifiers
     /^SELECT\s+COUNT\(\*\)(?:\s+as\s+\w+)?\s+FROM\s+[`"]?\w+[`"]?$/is,                    // getRowCount: SELECT COUNT(*) [as alias] FROM table
@@ -81,6 +82,7 @@ const testSecurityConfig = {
     // Test connection queries
     /^SELECT\s+1(?:\s+as\s+\w+)?$/i,                                                     // SELECT 1 [as alias] (connection test)
   ],
+  /* eslint-enable security/detect-unsafe-regex */
   blockedKeywords: [
     'INSERT', 'UPDATE', 'DELETE', 'DROP', 'ALTER', 'CREATE', 'TRUNCATE',
     '--', '/*', '*/', 'EXEC', 'EXECUTE', 'xp_', 'sp_'
@@ -207,13 +209,13 @@ describe('SQL Query Generation Validation', () => {
   });
 
   describe('PostgreSQL Connector SQL Generation', () => {
-    let connector: PostgresConnector;
+    let _connector: PostgresConnector;
 
     beforeEach(() => {
-      connector = new PostgresConnector(mockPostgresConfig, testSecurityConfig);
+      _connector = new PostgresConnector(mockPostgresConfig, testSecurityConfig);
     });
 
-    it('should generate valid SQL for listTables method', async () => {
+    it('should generate valid SQL for listTables method', () => {
       // Test that the SQL generation doesn't have incomplete OR clauses
       const expectedPattern = /^SELECT .+ FROM information_schema\./is;
 
@@ -253,9 +255,6 @@ describe('SQL Query Generation Validation', () => {
       LIMIT $2
     `;
 
-      // Test each pattern in the security config
-      const patterns = testSecurityConfig.allowedQueryPatterns;
-
       // Should match the information_schema pattern
       const infoSchemaPattern = /^SELECT .+ FROM information_schema\./is;
       expect(infoSchemaPattern.test(listTablesSQL.trim())).toBe(true);
@@ -276,8 +275,6 @@ describe('SQL Query Generation Validation', () => {
         expect(query).toMatch(/OR\s*$/);
 
         // These should be rejected by pattern matching
-        const infoSchemaPattern = /^SELECT .+ FROM information_schema\./i;
-
         if (query.includes('information_schema')) {
           // Even malformed information_schema queries might match the pattern
           // but should be caught by other validation
@@ -320,10 +317,10 @@ describe('SQL Query Generation Validation', () => {
 
     connectorConfigs.forEach(({ name, connector: ConnectorClass, config }) => {
       describe(`${name} Connector`, () => {
-        let connector: any;
+        let connector: Record<string, unknown>;
 
         beforeEach(() => {
-          connector = new ConnectorClass(config, testSecurityConfig);
+          connector = new ConnectorClass(config, testSecurityConfig) as unknown as Record<string, unknown>;
         });
 
         it('should have listTables method', () => {
@@ -353,10 +350,10 @@ describe('SQL Query Generation Validation', () => {
   });
 
   describe('Query Pattern Validation', () => {
-    let connector: PostgresConnector;
+    let _connector: PostgresConnector;
 
     beforeEach(() => {
-      connector = new PostgresConnector(mockPostgresConfig, testSecurityConfig);
+      _connector = new PostgresConnector(mockPostgresConfig, testSecurityConfig);
     });
 
     it('should accept valid information_schema queries', () => {
@@ -417,10 +414,10 @@ describe('SQL Query Generation Validation', () => {
   });
 
   describe('Edge Case Query Validation', () => {
-    let connector: PostgresConnector;
+    let _connector: PostgresConnector;
 
     beforeEach(() => {
-      connector = new PostgresConnector(mockPostgresConfig, testSecurityConfig);
+      _connector = new PostgresConnector(mockPostgresConfig, testSecurityConfig);
     });
 
     it('should handle queries with unusual whitespace', () => {
@@ -466,18 +463,18 @@ describe('SQL Query Generation Validation', () => {
         'SELECT table_name FROM information_schema.tables WHERE table_schema = $1 OR',
       ];
 
-      completeQueries.forEach((query, index) => {
+      completeQueries.forEach((query) => {
         expect(query).not.toMatch(/WHERE\s*$/);
         expect(query).not.toMatch(/AND\s*$/);
         expect(query).not.toMatch(/OR\s*$/);
       });
 
-      incompleteQueries.forEach((query, index) => {
+      incompleteQueries.forEach((query, idx) => {
         const isIncomplete =
-          (/WHERE\s*$/.exec(query)) ||
-          (/AND\s*$/.exec(query)) ||
+          (/WHERE\s*$/.exec(query)) ??
+          (/AND\s*$/.exec(query)) ??
           (/OR\s*$/.exec(query));
-        expect(isIncomplete).toBeTruthy(`Query ${index + 1} should be detected as incomplete: ${query}`);
+        expect(isIncomplete).toBeTruthy(`Query ${idx + 1} should be detected as incomplete: ${query}`);
       });
     });
   });

@@ -8,6 +8,7 @@
 import postgres from 'postgres';
 import { BaseConnector } from './base-connector.js';
 import type { ConnectorConfig, TableSchema, SecurityConfig } from '../types/connector.js';
+import type { QueryResultRow } from '../types/driver-results.js';
 import type { SourceCredentials } from '../types.js';
 import {
   ConnectionError,
@@ -40,7 +41,7 @@ export class PostgresConnector extends BaseConnector {
   /**
    * Connect to PostgreSQL database with security validation
    */
-  private async connect(): Promise<void> {
+  private connect(): void {
     if (this.connected && this.client) {
       return; // Already connected
     }
@@ -51,13 +52,13 @@ export class PostgresConnector extends BaseConnector {
 
       this.client = postgres({
         host: this.config.host,
-        port: this.config.port || 5432,
+        port: this.config.port ?? 5432,
         database: this.config.database,
         username: this.config.username,
         password: this.config.password,
         ssl: this.config.ssl !== false ? sslConfig : false,
         connection: {
-          application_name: this.config.applicationName || 'freshguard-core'
+          application_name: this.config.applicationName ?? 'freshguard-core'
         },
         transform: {
           undefined: null
@@ -84,15 +85,15 @@ export class PostgresConnector extends BaseConnector {
   /**
    * Execute a validated SQL query with security measures
    */
-  protected async executeQuery(sql: string): Promise<any[]> {
+  protected async executeQuery(sql: string): Promise<QueryResultRow[]> {
     return this.executeParameterizedQuery(sql, []);
   }
 
   /**
    * Execute a parameterized SQL query using prepared statements
    */
-  protected async executeParameterizedQuery(sql: string, parameters: any[] = []): Promise<any[]> {
-    await this.connect();
+  protected async executeParameterizedQuery(sql: string, parameters: unknown[] = []): Promise<QueryResultRow[]> {
+    this.connect();
 
     if (!this.client) {
       throw new ConnectionError('Database connection not available');
@@ -100,9 +101,12 @@ export class PostgresConnector extends BaseConnector {
 
     try {
       const result = await this.executeWithTimeout(
-        async () => parameters.length > 0
-          ? await this.client!.unsafe(sql, parameters)  // Use parameterized query with unsafe
-          : await this.client!.unsafe(sql),              // Fallback to unsafe for non-parameterized
+        async () => {
+          if (!this.client) throw new ConnectionError('Database connection not available');
+          return parameters.length > 0
+            ? await this.client.unsafe(sql, parameters as (string | number | boolean | null)[])  // Use parameterized query with unsafe
+            : await this.client.unsafe(sql);              // Fallback to unsafe for non-parameterized
+        },
         this.queryTimeout
       );
 
@@ -141,7 +145,7 @@ export class PostgresConnector extends BaseConnector {
         ssl: this.config.ssl
       });
 
-      await this.connect();
+      this.connect();
 
       if (!this.client) {
         this.logDebugError(mergedDebugConfig, debugId, 'Connection test', {
@@ -155,7 +159,10 @@ export class PostgresConnector extends BaseConnector {
       const sql = 'SELECT 1 as test';
 
       await this.executeWithTimeout(
-        () => this.client!.unsafe(sql),
+        () => {
+          if (!this.client) throw new ConnectionError('Database connection not available');
+          return this.client.unsafe(sql);
+        },
         this.connectionTimeout
       );
 
@@ -191,7 +198,7 @@ export class PostgresConnector extends BaseConnector {
   /**
    * Helper method to merge debug configuration
    */
-  private mergeDebugConfig(debugConfig?: import('../types.js').DebugConfig) {
+  private mergeDebugConfig(debugConfig?: import('../types.js').DebugConfig): import('../types.js').DebugConfig {
     return {
       enabled: debugConfig?.enabled ?? (process.env.NODE_ENV === 'development'),
       exposeQueries: debugConfig?.exposeQueries ?? true,
@@ -245,11 +252,11 @@ export class PostgresConnector extends BaseConnector {
       LIMIT $2
     `;
 
-    this.validateQuery(sql);
+    await this.validateQuery(sql);
 
     try {
       const result = await this.executeParameterizedQuery(sql, ['public', this.maxRows]);
-      return result.map((row: any) => row.table_name).filter(Boolean);
+      return result.map((row) => String((row.table_name ?? row.TABLE_NAME ?? row.tablename ?? '') as string)).filter(Boolean);
     } catch (error) {
       throw new QueryError(
         'Failed to list tables',
@@ -279,7 +286,7 @@ export class PostgresConnector extends BaseConnector {
       LIMIT $3
     `;
 
-    this.validateQuery(sql);
+    await this.validateQuery(sql);
 
     try {
       const result = await this.executeParameterizedQuery(sql, ['public', table, this.maxRows]);
@@ -291,9 +298,9 @@ export class PostgresConnector extends BaseConnector {
       return {
         table,
         columns: result.map(row => ({
-          name: row.column_name,
-          type: this.mapPostgresType(row.data_type),
-          nullable: row.is_nullable === 'YES'
+          name: String((row.column_name ?? '') as string),
+          type: this.mapPostgresType(String((row.data_type ?? '') as string)),
+          nullable: (row.is_nullable ?? row.IS_NULLABLE) === 'YES'
         }))
       };
     } catch (error) {
@@ -341,11 +348,11 @@ export class PostgresConnector extends BaseConnector {
         WHERE n.nspname = $1 AND c.relname = $2
       `;
 
-      this.validateQuery(sql);
+      await this.validateQuery(sql);
       const result = await this.executeParameterizedQuery(sql, ['public', table]);
 
-      if (result.length > 0 && result[0].last_modified) {
-        return new Date(result[0].last_modified);
+      if (result.length > 0 && result[0]?.last_modified) {
+        return new Date(String(result[0].last_modified as string | number));
       }
     } catch {
       // System catalog query failed, return null
@@ -404,7 +411,7 @@ export class PostgresConnector extends BaseConnector {
       'uuid': 'uuid'
     };
 
-    return typeMap[pgType.toLowerCase()] || 'unknown';
+    return typeMap[pgType.toLowerCase()] ?? 'unknown';
   }
 
   // ==============================================
@@ -415,23 +422,24 @@ export class PostgresConnector extends BaseConnector {
    * Legacy connect method for backward compatibility
    * @deprecated Use constructor with ConnectorConfig instead
    */
+  // eslint-disable-next-line @typescript-eslint/require-await -- deprecated legacy method, kept async for API compatibility
   async connectLegacy(credentials: SourceCredentials): Promise<void> {
     console.warn('Warning: connectLegacy is deprecated. Use constructor with ConnectorConfig instead.');
 
     // Convert legacy credentials to new format
     const config: ConnectorConfig = {
-      host: credentials.host || '',
-      port: credentials.port || 5432,
-      database: credentials.database || '',
-      username: credentials.username || '',
-      password: credentials.password || '',
+      host: credentials.host ?? '',
+      port: credentials.port ?? 5432,
+      database: credentials.database ?? '',
+      username: credentials.username ?? '',
+      password: credentials.password ?? '',
       ssl: credentials.sslMode !== 'disable'
     };
 
     // Validate and reconnect
     validateConnectorConfig(config);
     this.config = { ...this.config, ...config };
-    await this.connect();
+    this.connect();
   }
 
   /**
@@ -481,7 +489,7 @@ export class PostgresConnector extends BaseConnector {
 
       return {
         rowCount,
-        lastUpdate: lastUpdate || undefined
+        lastUpdate: lastUpdate ?? undefined
       };
     } catch (error) {
       throw new QueryError(
@@ -497,6 +505,7 @@ export class PostgresConnector extends BaseConnector {
    * Legacy query method for backward compatibility
    * @deprecated Direct SQL queries are not allowed for security reasons
    */
+  // eslint-disable-next-line @typescript-eslint/require-await -- deprecated stub that always throws
   async query<T = unknown>(_sql: string): Promise<T[]> {
     throw new Error(
       'Direct SQL queries are not allowed for security reasons. Use specific methods like getRowCount(), getMaxTimestamp(), etc.'

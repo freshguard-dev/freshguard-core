@@ -10,7 +10,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { BaselineCalculator } from '../../src/monitor/baseline-calculator.js';
-import type { CheckExecution } from '../../src/metadata/types.js';
+import type { MetadataCheckExecution } from '../../src/metadata/types.js';
 import type { ResolvedBaselineConfig } from '../../src/monitor/baseline-config.js';
 
 // Default configuration for testing
@@ -27,7 +27,7 @@ const defaultConfig: ResolvedBaselineConfig = {
 };
 
 // Helper to create check execution data
-function createExecution(rowCount: number, daysAgo: number): CheckExecution {
+function createExecution(rowCount: number, daysAgo: number): MetadataCheckExecution {
   const date = new Date();
   date.setDate(date.getDate() - daysAgo);
 
@@ -40,8 +40,8 @@ function createExecution(rowCount: number, daysAgo: number): CheckExecution {
 }
 
 // Helper to create executions for specific days of week
-function createWeeklyPattern(weekCount = 2): CheckExecution[] {
-  const executions: CheckExecution[] = [];
+function createWeeklyPattern(weekCount = 2): MetadataCheckExecution[] {
+  const executions: MetadataCheckExecution[] = [];
   const baseDate = new Date('2024-01-01'); // Monday
 
   for (let week = 0; week < weekCount; week++) {
@@ -308,10 +308,11 @@ describe('BaselineCalculator', () => {
     it('should filter out invalid data points', () => {
       const calculator = new BaselineCalculator(defaultConfig);
 
-      const executions = [
+      const executions: MetadataCheckExecution[] = [
         createExecution(100, 3),
         { ...createExecution(200, 2), rowCount: undefined }, // Invalid
         createExecution(300, 1),
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         { ...createExecution(400, 0), executedAt: undefined as any }, // Invalid
       ];
 

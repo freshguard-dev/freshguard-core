@@ -3,7 +3,7 @@
  * Query complexity analysis and schema caching
  */
 
-import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, test, expect, beforeEach, afterEach } from 'vitest';
 import type {
   QueryComplexityAnalyzer,
   TableMetadata
@@ -12,11 +12,11 @@ import {
   createQueryAnalyzer,
   createSecurityAnalyzer,
   createPerformanceAnalyzer,
-  QueryComplexity
 } from '../src/security/query-analyzer.js';
 import type {
   SchemaCache,
-  CachedTableSchema} from '../src/security/schema-cache.js';
+  CachedTableSchema,
+  CachedIndexInfo} from '../src/security/schema-cache.js';
 import {
   createSchemaCache,
   createFastCache,
@@ -566,7 +566,7 @@ describe('Advanced Security Features Tests', () => {
         // Access the entry (this might trigger auto-refresh logic)
         refreshCache.get('testdb', 'refresh_test');
 
-        const needingRefresh = refreshCache.getEntriesNeedingRefresh();
+        const _needingRefresh = refreshCache.getEntriesNeedingRefresh();
         // Depending on timing, this might or might not need refresh
 
         refreshCache.markAsRefreshed('testdb', 'refresh_test');
@@ -632,7 +632,7 @@ describe('Advanced Security Features Tests', () => {
         }
       ];
 
-      const indexes = [];
+      const indexes: CachedIndexInfo[] = [];
 
       const hash1 = generateStructureHash(columns1, indexes);
       const hash2 = generateStructureHash(columns2, indexes);

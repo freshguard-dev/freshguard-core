@@ -98,7 +98,7 @@ export class BaselineCalculator {
         calculationMethod: this.config.calculationMethod,
         seasonalAdjusted: seasonalAdjustmentApplied,
       };
-    } catch (error) {
+    } catch {
       // If calculation fails, return safe defaults
       return {
         mean: currentRowCount,
@@ -117,7 +117,7 @@ export class BaselineCalculator {
     return executions
       .filter(e => e.rowCount !== undefined && e.executedAt)
       .map(e => ({
-        rowCount: e.rowCount!,
+        rowCount: e.rowCount ?? 0,
         executedAt: e.executedAt,
       }));
   }
@@ -214,9 +214,7 @@ export class BaselineCalculator {
     // Group by day of week
     dataPoints.forEach(point => {
       const dayOfWeek = point.executedAt.getDay();
-      if (!stats[dayOfWeek]) {
-        stats[dayOfWeek] = { mean: 0, count: 0 };
-      }
+      stats[dayOfWeek] ??= { mean: 0, count: 0 };
 
       stats[dayOfWeek].mean += point.rowCount;
       stats[dayOfWeek].count += 1;

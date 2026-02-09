@@ -90,7 +90,7 @@ describe('All Connectors Debug Enhancement', () => {
 
       // Should accept debug config parameter (checked via TypeScript compilation)
       expect(() => {
-        connector.testConnection({ enabled: true, exposeRawErrors: true });
+        void connector.testConnection({ enabled: true, exposeRawErrors: true });
       }).not.toThrow();
     });
 
@@ -114,7 +114,7 @@ describe('All Connectors Debug Enhancement', () => {
 
       // Should accept debug config parameter (checked via TypeScript compilation)
       expect(() => {
-        connector.testConnection({ enabled: true, exposeRawErrors: true });
+        void connector.testConnection({ enabled: true, exposeRawErrors: true });
       }).not.toThrow();
     });
 
@@ -141,7 +141,7 @@ describe('All Connectors Debug Enhancement', () => {
 
       // Should accept debug config parameter (checked via TypeScript compilation)
       expect(() => {
-        connector.testConnection({ enabled: true, exposeRawErrors: true });
+        void connector.testConnection({ enabled: true, exposeRawErrors: true });
       }).not.toThrow();
     });
 
@@ -172,7 +172,7 @@ describe('All Connectors Debug Enhancement', () => {
 
       // Should accept debug config parameter (checked via TypeScript compilation)
       expect(() => {
-        connector.testConnection({ enabled: true, exposeRawErrors: true });
+        void connector.testConnection({ enabled: true, exposeRawErrors: true });
       }).not.toThrow();
     });
 
@@ -240,7 +240,7 @@ describe('All Connectors Debug Enhancement', () => {
       // All should accept debug config parameter (TypeScript compilation ensures this)
       for (const connector of connectors) {
         expect(() => {
-          connector.testConnection(debugConfig);
+          void connector.testConnection(debugConfig);
         }).not.toThrow();
       }
     });

@@ -14,6 +14,8 @@ import { describe, it, expect } from 'vitest';
 import { PostgresConnector } from '../src/connectors/postgres.js';
 import type { ConnectorConfig } from '../src/types/connector.js';
 
+interface ConnectorInternal { validateQuery(sql: string): Promise<void> }
+
 describe('Multiline SQL Validation Fix', () => {
   const config: ConnectorConfig = {
     host: 'localhost',
@@ -25,7 +27,7 @@ describe('Multiline SQL Validation Fix', () => {
   };
 
   describe('Pattern Validation for Multiline SQL', () => {
-    it('should validate multiline SQL with leading whitespace', async () => {
+    it('should validate multiline SQL with leading whitespace', () => {
       const connector = new PostgresConnector(config, { requireSSL: false });
 
       // This is the exact SQL pattern that was failing before the fix
@@ -39,12 +41,12 @@ describe('Multiline SQL Validation Fix', () => {
 
       // Before fix: This would throw "Query pattern not allowed"
       // After fix: This should pass validation
-      await expect(async () => {
-        await (connector as any).validateQuery(multilineSQL);
+      expect(async () => {
+        await (connector as unknown as ConnectorInternal).validateQuery(multilineSQL);
       }).not.toThrow();
     });
 
-    it('should validate SQL with various whitespace patterns', async () => {
+    it('should validate SQL with various whitespace patterns', () => {
       const connector = new PostgresConnector(config, { requireSSL: false });
 
       const sqlVariations = [
@@ -63,8 +65,8 @@ describe('Multiline SQL Validation Fix', () => {
       ];
 
       for (const sql of sqlVariations) {
-        await expect(async () => {
-          await (connector as any).validateQuery(sql);
+        expect(async () => {
+          await (connector as unknown as ConnectorInternal).validateQuery(sql);
         }).not.toThrow(`SQL should validate: ${JSON.stringify(sql.substring(0, 50))}`);
       }
     });
@@ -86,7 +88,7 @@ describe('Multiline SQL Validation Fix', () => {
 
       for (const sql of malformedQueries) {
         await expect(async () => {
-          await (connector as any).validateQuery(sql);
+          await (connector as unknown as ConnectorInternal).validateQuery(sql);
         }).rejects.toThrow(); // Just verify it throws, don't check exact message
       }
     });
@@ -110,12 +112,12 @@ describe('Multiline SQL Validation Fix', () => {
         `;
 
         // Call validateQuery synchronously (it's async but validation is sync)
-        const promise = (connector as any).validateQuery(sql);
+        const promise: Promise<void> = (connector as unknown as ConnectorInternal).validateQuery(sql);
         return promise;
       }).not.toThrow();
     });
 
-    it('should allow getTableSchema() SQL to validate', async () => {
+    it('should allow getTableSchema() SQL to validate', () => {
       const connector = new PostgresConnector(config, { requireSSL: false });
 
       // Test the SQL pattern used by getTableSchema()
@@ -131,14 +133,14 @@ describe('Multiline SQL Validation Fix', () => {
         LIMIT $3
       `;
 
-      await expect(async () => {
-        await (connector as any).validateQuery(getTableSchemaSQL);
+      expect(async () => {
+        await (connector as unknown as ConnectorInternal).validateQuery(getTableSchemaSQL);
       }).not.toThrow();
     });
   });
 
   describe('Edge Cases and Regression Prevention', () => {
-    it('should handle extremely indented SQL', async () => {
+    it('should handle extremely indented SQL', () => {
       const connector = new PostgresConnector(config, { requireSSL: false });
 
       // Test with heavy indentation (some formatters do this)
@@ -150,19 +152,19 @@ describe('Multiline SQL Validation Fix', () => {
                                     LIMIT $2
       `;
 
-      await expect(async () => {
-        await (connector as any).validateQuery(heavilyIndentedSQL);
+      expect(async () => {
+        await (connector as unknown as ConnectorInternal).validateQuery(heavilyIndentedSQL);
       }).not.toThrow();
     });
 
-    it('should handle SQL with mixed line endings', async () => {
+    it('should handle SQL with mixed line endings', () => {
       const connector = new PostgresConnector(config, { requireSSL: false });
 
       // Test with different line endings (Windows vs Unix)
       const mixedLineEndingsSQL = 'SELECT table_name\r\nFROM information_schema.tables\nWHERE table_schema = $1\r\nORDER BY table_name\nLIMIT $2';
 
-      await expect(async () => {
-        await (connector as any).validateQuery(mixedLineEndingsSQL);
+      expect(async () => {
+        await (connector as unknown as ConnectorInternal).validateQuery(mixedLineEndingsSQL);
       }).not.toThrow();
     });
 
@@ -179,7 +181,7 @@ describe('Multiline SQL Validation Fix', () => {
 
       for (const threat of securityThreats) {
         await expect(async () => {
-          await (connector as any).validateQuery(threat);
+          await (connector as unknown as ConnectorInternal).validateQuery(threat);
         }).rejects.toThrow(); // Just verify security threats are blocked
       }
     });

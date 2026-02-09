@@ -365,7 +365,7 @@ class Histogram {
 
   constructor(buckets: number[], labels: Record<string, string> = {}) {
     this.buckets = [...buckets].sort((a, b) => a - b);
-    this.counts = new Array(buckets.length + 1).fill(0); // +1 for +Inf bucket
+    this.counts = new Array<number>(buckets.length + 1).fill(0); // +1 for +Inf bucket
     this.labels = labels;
   }
 
@@ -380,14 +380,19 @@ class Histogram {
     for (let i = 0; i < this.buckets.length; i++) {
       const bucket = this.buckets[i];
       if (bucket !== undefined && value <= bucket) {
-        this.counts[i]!++;
+        const currentCount = this.counts[i];
+        if (currentCount !== undefined) {
+          this.counts[i] = currentCount + 1;
+        }
         return;
       }
     }
 
     // Value is larger than all buckets, goes to +Inf bucket
     const lastIndex = this.counts.length - 1;
-    this.counts[lastIndex]!++;
+    if (this.counts[lastIndex] !== undefined) {
+      this.counts[lastIndex]++;
+    }
   }
 
   /**
@@ -459,12 +464,12 @@ export class MetricsCollector {
   constructor(config: MetricsConfig = {}) {
     this.config = {
       enabled: config.enabled !== false,
-      collectionInterval: config.collectionInterval || 5000,
-      maxMetrics: config.maxMetrics || 10000,
-      defaultHistogramBuckets: config.defaultHistogramBuckets || this.getDefaultHistogramBuckets(),
-      defaultSummaryQuantiles: config.defaultSummaryQuantiles || [0.5, 0.95, 0.99],
+      collectionInterval: config.collectionInterval ?? 5000,
+      maxMetrics: config.maxMetrics ?? 10000,
+      defaultHistogramBuckets: config.defaultHistogramBuckets ?? this.getDefaultHistogramBuckets(),
+      defaultSummaryQuantiles: config.defaultSummaryQuantiles ?? [0.5, 0.95, 0.99],
       collectSystemMetrics: config.collectSystemMetrics !== false,
-      prefix: config.prefix || 'freshguard_',
+      prefix: config.prefix ?? 'freshguard_',
     };
 
     if (this.config.enabled && this.config.collectSystemMetrics) {
@@ -488,7 +493,7 @@ export class MetricsCollector {
     const labels = {
       operation,
       database,
-      table: table || 'unknown',
+      table: table ?? 'unknown',
       status: success ? 'success' : 'error',
     };
 
@@ -806,7 +811,7 @@ export class MetricsCollector {
         const usage = process.cpuUsage();
         const cpuPercent = (usage.user + usage.system) / 1000; // Convert to percentage
         this.builtinGauges.cpu_usage_percent.set(Math.min(cpuPercent, 100));
-      } catch (error) {
+      } catch {
         // Ignore errors in system metrics collection
       }
     }, this.config.collectionInterval);
@@ -844,7 +849,7 @@ export const defaultMetrics = new MetricsCollector();
 export function createComponentMetrics(component: string, config?: MetricsConfig): MetricsCollector {
   return new MetricsCollector({
     ...config,
-    prefix: `${config?.prefix || 'freshguard_'}${component}_`,
+    prefix: `${config?.prefix ?? 'freshguard_'}${component}_`,
   });
 }
 

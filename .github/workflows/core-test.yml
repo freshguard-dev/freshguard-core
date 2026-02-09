@@ -9,6 +9,8 @@ on:
       - 'package.json'
       - 'tsconfig.json'
       - 'vitest.config.ts'
+      - 'eslint.config.js'
+      - 'tsconfig.eslint.json'
   pull_request:
     branches: [ main, develop ]
     paths:
@@ -17,6 +19,8 @@ on:
       - 'package.json'
       - 'tsconfig.json'
       - 'vitest.config.ts'
+      - 'eslint.config.js'
+      - 'tsconfig.eslint.json'
 
 jobs:
   test:
@@ -58,6 +62,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Lint check
+        run: pnpm lint:check
 
       - name: Type check
         run: pnpm type-check

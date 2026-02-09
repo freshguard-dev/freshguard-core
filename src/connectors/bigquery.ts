@@ -8,6 +8,7 @@
 import { BigQuery } from '@google-cloud/bigquery';
 import { BaseConnector } from './base-connector.js';
 import type { ConnectorConfig, TableSchema, SecurityConfig } from '../types/connector.js';
+import { type QueryResultRow, rowString } from '../types/driver-results.js';
 import type { SourceCredentials } from '../types.js';
 import {
   ConnectionError,
@@ -53,7 +54,7 @@ export class BigQueryConnector extends BaseConnector {
     }
 
     // Validate project ID format (Google Cloud project IDs have specific rules)
-    const projectIdPattern = /^[a-z][a-z0-9\-]*[a-z0-9]$/;
+    const projectIdPattern = /^[a-z][a-z0-9-]*[a-z0-9]$/;
     if (!projectIdPattern.test(config.database)) {
       throw new ConfigurationError('Invalid BigQuery project ID format');
     }
@@ -68,7 +69,7 @@ export class BigQueryConnector extends BaseConnector {
     if (config.password) {
       try {
         // Parse service account JSON from password field
-        const credentials = JSON.parse(config.password);
+        const credentials = JSON.parse(config.password) as Record<string, unknown>;
 
         // Validate that this looks like a service account key
         if (!credentials.type || credentials.type !== 'service_account') {
@@ -96,7 +97,7 @@ export class BigQueryConnector extends BaseConnector {
     }
 
     try {
-      const bigqueryOptions: any = {
+      const bigqueryOptions: Record<string, unknown> = {
         projectId: this.projectId,
         location: this.location,
         // Timeout for BigQuery operations
@@ -106,7 +107,7 @@ export class BigQueryConnector extends BaseConnector {
       // Handle authentication - prioritize service account key
       if (this.config.password) {
         // Service account validation was already done in constructor
-        const credentials = JSON.parse(this.config.password);
+        const credentials = JSON.parse(this.config.password) as Record<string, unknown>;
         bigqueryOptions.credentials = credentials;
       } else {
         // Fallback to Application Default Credentials
@@ -115,16 +116,19 @@ export class BigQueryConnector extends BaseConnector {
 
       // Create BigQuery client with timeout protection
       this.client = await this.executeWithTimeout(
-        () => new Promise<BigQuery>((resolve) => {
-          const client = new BigQuery(bigqueryOptions);
-          resolve(client);
+        () => new Promise<BigQuery>((resolvePromise) => {
+          const client = new BigQuery(bigqueryOptions as ConstructorParameters<typeof BigQuery>[0]);
+          resolvePromise(client);
         }),
         this.connectionTimeout
       );
 
       // Test authentication by listing datasets (limited)
       await this.executeWithTimeout(
-        () => this.client!.getDatasets({ maxResults: 1 }),
+        () => {
+          if (!this.client) throw new ConnectionError('BigQuery client not available');
+          return this.client.getDatasets({ maxResults: 1 });
+        },
         this.connectionTimeout
       );
 
@@ -146,7 +150,7 @@ export class BigQueryConnector extends BaseConnector {
   /**
    * Execute a parameterized SQL query using BigQuery's named parameters
    */
-  protected async executeParameterizedQuery(sql: string, parameters: any[] = []): Promise<any[]> {
+  protected async executeParameterizedQuery(sql: string, parameters: unknown[] = []): Promise<QueryResultRow[]> {
     await this.connect();
 
     if (!this.client) {
@@ -156,7 +160,7 @@ export class BigQueryConnector extends BaseConnector {
     try {
       // Convert positional parameters ($1, $2, etc.) to BigQuery named parameters (@param1, @param2, etc.)
       let finalSql = sql;
-      const namedParams: Record<string, any> = {};
+      const namedParams: Record<string, unknown> = {};
 
       if (parameters.length > 0) {
         for (let i = 0; i < parameters.length; i++) {
@@ -164,12 +168,13 @@ export class BigQueryConnector extends BaseConnector {
           const namedParam = `param${i + 1}`;
 
           // Replace $1, $2, etc. with @param1, @param2, etc.
+          // eslint-disable-next-line security/detect-non-literal-regexp
           finalSql = finalSql.replace(new RegExp(`\\${placeholder}\\b`, 'g'), `@${namedParam}`);
           namedParams[namedParam] = parameters[i];
         }
       }
 
-      const queryOptions: any = {
+      const queryOptions: Record<string, unknown> = {
         query: finalSql,
         location: this.location,
         maxResults: this.maxRows,
@@ -183,14 +188,19 @@ export class BigQueryConnector extends BaseConnector {
       }
 
       const [rows] = await this.executeWithTimeout(
-        () => this.client!.query(queryOptions),
+        () => {
+          if (!this.client) throw new ConnectionError('BigQuery client not available');
+          return this.client.query(queryOptions as Parameters<BigQuery['query']>[0]);
+        },
         this.queryTimeout
       );
 
-      // Validate result size for security
-      this.validateResultSize(rows);
+      const typedRows = rows as QueryResultRow[];
 
-      return rows;
+      // Validate result size for security
+      this.validateResultSize(typedRows);
+
+      return typedRows;
     } catch (error) {
       if (error instanceof TimeoutError) {
         throw error;
@@ -209,7 +219,7 @@ export class BigQueryConnector extends BaseConnector {
   /**
    * Execute a validated SQL query with security measures
    */
-  protected async executeQuery(sql: string): Promise<any[]> {
+  protected async executeQuery(sql: string): Promise<QueryResultRow[]> {
     return this.executeParameterizedQuery(sql, []);
   }
 
@@ -241,7 +251,10 @@ export class BigQueryConnector extends BaseConnector {
       const sql = 'SELECT 1 as test';
 
       await this.executeWithTimeout(
-        () => this.client!.query({ query: sql, location: this.location }),
+        () => {
+          if (!this.client) throw new ConnectionError('BigQuery client not available');
+          return this.client.query({ query: sql, location: this.location });
+        },
         this.connectionTimeout
       );
 
@@ -276,7 +289,7 @@ export class BigQueryConnector extends BaseConnector {
   /**
    * Helper method to merge debug configuration
    */
-  private mergeDebugConfig(debugConfig?: import('../types.js').DebugConfig) {
+  private mergeDebugConfig(debugConfig?: import('../types.js').DebugConfig): import('../types.js').DebugConfig {
     return {
       enabled: debugConfig?.enabled ?? (process.env.NODE_ENV === 'development'),
       exposeQueries: debugConfig?.exposeQueries ?? true,
@@ -339,11 +352,11 @@ export class BigQueryConnector extends BaseConnector {
       LIMIT $2
     `;
 
-    this.validateQuery(sql);
+    await this.validateQuery(sql);
 
     try {
       const result = await this.executeParameterizedQuery(sql, [this.projectId, this.maxRows]);
-      return result.map((row: any) => row.table_name).filter(Boolean);
+      return result.map((row) => String((row.table_name ?? row.TABLE_NAME ?? row.tablename ?? '') as string)).filter(Boolean);
     } catch (error) {
       throw new QueryError(
         'Failed to list tables',
@@ -379,7 +392,7 @@ export class BigQueryConnector extends BaseConnector {
       LIMIT $4
     `;
 
-    this.validateQuery(sql);
+    await this.validateQuery(sql);
 
     try {
       const result = await this.executeParameterizedQuery(sql, [projectId, datasetId, tableName, this.maxRows]);
@@ -391,9 +404,9 @@ export class BigQueryConnector extends BaseConnector {
       return {
         table,
         columns: result.map(row => ({
-          name: row.column_name,
-          type: this.mapBigQueryType(row.data_type),
-          nullable: row.is_nullable === 'YES'
+          name: String((row.column_name ?? row.COLUMN_NAME ?? '') as string),
+          type: this.mapBigQueryType(String((row.data_type ?? row.DATA_TYPE ?? '') as string)),
+          nullable: (row.is_nullable ?? row.IS_NULLABLE) === 'YES'
         }))
       };
     } catch (error) {
@@ -423,10 +436,11 @@ export class BigQueryConnector extends BaseConnector {
 
       if (this.client && dataset && tableId) {
         const tableRef = this.client.dataset(dataset).table(tableId);
-        const [metadata] = await tableRef.getMetadata();
+        const [metadata] = await tableRef.getMetadata() as unknown as [Record<string, unknown>];
 
-        if (metadata.lastModifiedTime) {
-          return new Date(parseInt(metadata.lastModifiedTime));
+        const lastModifiedTime = metadata.lastModifiedTime;
+        if (lastModifiedTime) {
+          return new Date(parseInt(rowString(lastModifiedTime), 10));
         }
       }
     } catch {
@@ -454,7 +468,7 @@ export class BigQueryConnector extends BaseConnector {
   /**
    * Close the BigQuery connection
    */
-  async close(): Promise<void> {
+  close(): Promise<void> {
     try {
       // BigQuery client doesn't require explicit cleanup
       // Just reset references
@@ -464,6 +478,7 @@ export class BigQueryConnector extends BaseConnector {
       // Log error but don't throw
       console.warn('Warning: Error closing BigQuery connection:', ErrorHandler.getUserMessage(error));
     }
+    return Promise.resolve();
   }
 
   /**
@@ -492,7 +507,7 @@ export class BigQueryConnector extends BaseConnector {
       'GEOGRAPHY': 'geography'
     };
 
-    return typeMap[bqType.toUpperCase()] || 'unknown';
+    return typeMap[bqType.toUpperCase()] ?? 'unknown';
   }
 
   /**
@@ -535,8 +550,8 @@ export class BigQueryConnector extends BaseConnector {
   async connectLegacy(credentials: SourceCredentials): Promise<void> {
     console.warn('Warning: connectLegacy is deprecated. Use constructor with ConnectorConfig instead.');
 
-    const options = credentials.additionalOptions || {};
-    const projectId = (options.projectId as string) || credentials.database || '';
+    const options = credentials.additionalOptions ?? {};
+    const projectId = (options.projectId as string) ?? credentials.database ?? '';
 
     if (!projectId) {
       throw new ConfigurationError('BigQuery project ID is required');
@@ -546,8 +561,8 @@ export class BigQueryConnector extends BaseConnector {
       host: 'bigquery.googleapis.com',
       port: 443,
       database: projectId,
-      username: credentials.username || 'bigquery',
-      password: credentials.password || '',
+      username: credentials.username ?? 'bigquery',
+      password: credentials.password ?? '',
       ssl: true
     };
 
@@ -610,7 +625,7 @@ export class BigQueryConnector extends BaseConnector {
 
       return {
         rowCount,
-        lastUpdate: lastUpdate || undefined
+        lastUpdate: lastUpdate ?? undefined
       };
     } catch (error) {
       throw new QueryError(
@@ -626,6 +641,7 @@ export class BigQueryConnector extends BaseConnector {
    * Legacy query method for backward compatibility
    * @deprecated Direct SQL queries are not allowed for security reasons
    */
+  // eslint-disable-next-line @typescript-eslint/require-await -- deprecated stub that always throws
   async query<T = unknown>(_sql: string): Promise<T[]> {
     throw new Error(
       'Direct SQL queries are not allowed for security reasons. Use specific methods like getRowCount(), getMaxTimestamp(), etc.'

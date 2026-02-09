@@ -9,6 +9,7 @@ import type { DuckDBConnection } from '@duckdb/node-api';
 import { DuckDBInstance } from '@duckdb/node-api';
 import { BaseConnector } from './base-connector.js';
 import type { ConnectorConfig, TableSchema, SecurityConfig } from '../types/connector.js';
+import { type QueryResultRow, rowString } from '../types/driver-results.js';
 import type { SourceCredentials } from '../types.js';
 import {
   ConnectionError,
@@ -90,6 +91,7 @@ export class DuckDBConnector extends BaseConnector {
         // For file-based databases, check if file exists and is accessible
         // Note: DuckDB will create the file if it doesn't exist, but we want to validate the directory
         const dirPath = this.databasePath.substring(0, this.databasePath.lastIndexOf('/'));
+        // eslint-disable-next-line security/detect-non-literal-fs-filename -- dirPath is derived from validated databasePath config
         if (dirPath && !existsSync(dirPath)) {
           throw new ConnectionError('Database directory does not exist');
         }
@@ -105,7 +107,10 @@ export class DuckDBConnector extends BaseConnector {
 
       // Get a connection from the instance
       this.connection = await this.executeWithTimeout(
-        () => this.instance!.connect(),
+        () => {
+          if (!this.instance) throw new ConnectionError('DuckDB instance not available');
+          return this.instance.connect();
+        },
         this.connectionTimeout
       );
 
@@ -127,7 +132,7 @@ export class DuckDBConnector extends BaseConnector {
   /**
    * Execute a validated SQL query with security measures
    */
-  protected async executeQuery(sql: string): Promise<any[]> {
+  protected async executeQuery(sql: string): Promise<QueryResultRow[]> {
     return this.executeParameterizedQuery(sql, []);
   }
 
@@ -135,7 +140,7 @@ export class DuckDBConnector extends BaseConnector {
    * Execute a parameterized SQL query (DuckDB with manual parameter substitution)
    * Note: DuckDB node API has limited prepared statement support, so we use safe parameter substitution
    */
-  protected async executeParameterizedQuery(sql: string, parameters: any[] = []): Promise<any[]> {
+  protected async executeParameterizedQuery(sql: string, parameters: unknown[] = []): Promise<QueryResultRow[]> {
     await this.connect();
 
     if (!this.connection) {
@@ -167,11 +172,14 @@ export class DuckDBConnector extends BaseConnector {
       }
 
       const reader = await this.executeWithTimeout(
-        () => this.connection!.runAndReadAll(finalSql),
+        () => {
+          if (!this.connection) throw new ConnectionError('DuckDB connection not available');
+          return this.connection.runAndReadAll(finalSql);
+        },
         this.queryTimeout
       );
 
-      const rows = reader.getRowObjects();
+      const rows = reader.getRowObjects() as QueryResultRow[];
 
       // Validate result size for security
       this.validateResultSize(rows);
@@ -221,7 +229,10 @@ export class DuckDBConnector extends BaseConnector {
       const sql = 'SELECT 1 as test';
 
       await this.executeWithTimeout(
-        () => this.connection!.run(sql),
+        () => {
+          if (!this.connection) throw new ConnectionError('DuckDB connection not available');
+          return this.connection.run(sql);
+        },
         this.connectionTimeout
       );
 
@@ -255,7 +266,7 @@ export class DuckDBConnector extends BaseConnector {
   /**
    * Helper method to merge debug configuration
    */
-  private mergeDebugConfig(debugConfig?: import('../types.js').DebugConfig) {
+  private mergeDebugConfig(debugConfig?: import('../types.js').DebugConfig): import('../types.js').DebugConfig {
     return {
       enabled: debugConfig?.enabled ?? (process.env.NODE_ENV === 'development'),
       exposeQueries: debugConfig?.exposeQueries ?? true,
@@ -325,11 +336,11 @@ export class DuckDBConnector extends BaseConnector {
       LIMIT $1
     `;
 
-    this.validateQuery(sql);
+    await this.validateQuery(sql);
 
     try {
       const result = await this.executeParameterizedQuery(sql, [this.maxRows]);
-      return result.map((row: any) => row.table_name).filter(Boolean);
+      return result.map((row) => rowString(row.table_name ?? row.TABLE_NAME ?? row.tablename)).filter(Boolean);
     } catch (error) {
       throw new QueryError(
         'Failed to list tables',
@@ -359,7 +370,7 @@ export class DuckDBConnector extends BaseConnector {
       LIMIT $2
     `;
 
-    this.validateQuery(sql);
+    await this.validateQuery(sql);
 
     try {
       const result = await this.executeParameterizedQuery(sql, [table, this.maxRows]);
@@ -371,9 +382,9 @@ export class DuckDBConnector extends BaseConnector {
       return {
         table,
         columns: result.map(row => ({
-          name: row.column_name,
-          type: this.mapDuckDBType(row.data_type),
-          nullable: row.is_nullable === 'YES'
+          name: rowString(row.column_name),
+          type: this.mapDuckDBType(rowString(row.data_type)),
+          nullable: (row.is_nullable ?? row.IS_NULLABLE) === 'YES'
         }))
       };
     } catch (error) {
@@ -421,6 +432,7 @@ export class DuckDBConnector extends BaseConnector {
   /**
    * Close the database connection
    */
+  // eslint-disable-next-line @typescript-eslint/require-await -- must match abstract close(): Promise<void>
   async close(): Promise<void> {
     try {
       // Close connection first
@@ -477,7 +489,7 @@ export class DuckDBConnector extends BaseConnector {
       'INTERVAL': 'interval'
     };
 
-    return typeMap[duckdbType.toUpperCase()] || 'unknown';
+    return typeMap[duckdbType.toUpperCase()] ?? 'unknown';
   }
 
   // ==============================================
@@ -492,7 +504,7 @@ export class DuckDBConnector extends BaseConnector {
     console.warn('Warning: connectLegacy is deprecated. Use constructor with ConnectorConfig instead.');
 
     // Convert legacy credentials to new format
-    const dbPath = credentials.connectionString || credentials.database || ':memory:';
+    const dbPath = credentials.connectionString ?? credentials.database ?? ':memory:';
 
     const config: ConnectorConfig = {
       host: 'localhost', // DuckDB is always local
@@ -560,7 +572,7 @@ export class DuckDBConnector extends BaseConnector {
 
       return {
         rowCount,
-        lastUpdate: lastUpdate || undefined
+        lastUpdate: lastUpdate ?? undefined
       };
     } catch (error) {
       throw new QueryError(
@@ -576,6 +588,7 @@ export class DuckDBConnector extends BaseConnector {
    * Legacy query method for backward compatibility
    * @deprecated Direct SQL queries are not allowed for security reasons
    */
+  // eslint-disable-next-line @typescript-eslint/require-await -- deprecated stub that always throws
   async query<T = unknown>(_sql: string): Promise<T[]> {
     throw new Error(
       'Direct SQL queries are not allowed for security reasons. Use specific methods like getRowCount(), getMaxTimestamp(), etc.'

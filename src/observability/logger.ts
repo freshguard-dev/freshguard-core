@@ -48,7 +48,7 @@ export interface LogContext {
   /** Circuit breaker state */
   circuitBreakerState?: string;
   /** Additional context data */
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -66,7 +66,7 @@ export interface LoggerConfig {
   /** Enable/disable sensitive data sanitization */
   sanitizeSensitiveData?: boolean;
   /** Additional base context to include in all logs */
-  baseContext?: Record<string, any>;
+  baseContext?: Record<string, unknown>;
   /** Custom Pino options */
   pinoOptions?: Partial<LoggerOptions>;
 }
@@ -138,7 +138,7 @@ const SENSITIVE_FIELDS = new Set([
 /**
  * Sanitize sensitive data from an object
  */
-function sanitizeObject(obj: any, depth = 0): any {
+function sanitizeObject(obj: unknown, depth = 0): unknown {
   if (depth > 10) {
     return '[Maximum depth reached]';
   }
@@ -172,9 +172,9 @@ function sanitizeObject(obj: any, depth = 0): any {
   }
 
   if (typeof obj === 'object') {
-    const sanitized: any = {};
+    const sanitized: Record<string, unknown> = {};
 
-    for (const [key, value] of Object.entries(obj)) {
+    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
       const sanitizedKey = key.toLowerCase();
 
       if (SENSITIVE_FIELDS.has(sanitizedKey) || SENSITIVE_PATTERNS.some(pattern => pattern.test(key))) {
@@ -196,7 +196,7 @@ function sanitizeObject(obj: any, depth = 0): any {
 function sanitizeString(str: string): string {
   // Redact potential connection strings
   return str
-    .replace(/(?:password|pwd|secret|token|key)=[\w\-\.]+/gi, '$&=[REDACTED]')
+    .replace(/(?:password|pwd|secret|token|key)=[\w\-.]+/gi, '$&=[REDACTED]')
     .replace(/(?:mongodb|postgres|mysql):\/\/[^:]+:[^@]+@/gi, (match) =>
       match.replace(/:[^:@]+@/, ':***@')
     );
@@ -214,7 +214,7 @@ function createTimingTracker(): {
   let endTime: Date | null = null;
 
   return {
-    start() {
+    start(): void {
       startTime = new Date();
       endTime = null;
     },
@@ -239,7 +239,7 @@ function createTimingTracker(): {
         return 0;
       }
 
-      const now = endTime || new Date();
+      const now = endTime ?? new Date();
       return now.getTime() - startTime.getTime();
     },
   };
@@ -255,17 +255,17 @@ function createTimingTracker(): {
 export class StructuredLogger {
   private readonly logger: PinoLogger;
   private readonly config: Required<LoggerConfig>;
-  private readonly baseContext: Record<string, any>;
+  private readonly baseContext: Record<string, unknown>;
 
   constructor(config: LoggerConfig = {}) {
     this.config = {
-      level: config.level || LogLevel.INFO,
-      prettyPrint: config.prettyPrint || process.env.NODE_ENV === 'development',
-      serviceName: config.serviceName || 'freshguard-core',
-      environment: config.environment || process.env.NODE_ENV || 'development',
+      level: config.level ?? LogLevel.INFO,
+      prettyPrint: config.prettyPrint ?? process.env.NODE_ENV === 'development',
+      serviceName: config.serviceName ?? 'freshguard-core',
+      environment: config.environment ?? process.env.NODE_ENV ?? 'development',
       sanitizeSensitiveData: config.sanitizeSensitiveData !== false,
-      baseContext: config.baseContext || {},
-      pinoOptions: config.pinoOptions || {},
+      baseContext: config.baseContext ?? {},
+      pinoOptions: config.pinoOptions ?? {},
     };
 
     // Create base context
@@ -273,8 +273,8 @@ export class StructuredLogger {
       service: this.config.serviceName,
       environment: this.config.environment,
       pid: process.pid,
-      hostname: process.env.HOSTNAME || 'unknown',
-      version: process.env.npm_package_version || '0.0.0',
+      hostname: process.env.HOSTNAME ?? 'unknown',
+      version: process.env.npm_package_version ?? '0.0.0',
       ...this.config.baseContext,
     };
 
@@ -322,7 +322,7 @@ export class StructuredLogger {
    */
   child(context: LogContext): StructuredLogger {
     const sanitizedContext = this.config.sanitizeSensitiveData
-      ? sanitizeObject(context)
+      ? sanitizeObject(context) as LogContext
       : context;
 
     const childLogger = new StructuredLogger({
@@ -331,7 +331,7 @@ export class StructuredLogger {
         ...this.config.pinoOptions,
         base: {
           ...this.baseContext,
-          ...sanitizedContext,
+          ...(sanitizedContext as Record<string, unknown>),
         },
       },
     });
@@ -352,7 +352,7 @@ export class StructuredLogger {
     return {
       start: tracker.start.bind(tracker),
       getDuration: tracker.getDuration.bind(tracker),
-      end: (message?: string, context?: LogContext) => {
+      end: (message?: string, context?: LogContext): TimingInfo => {
         const timing = tracker.end();
 
         if (message) {
@@ -400,7 +400,7 @@ export class StructuredLogger {
   /**
    * Log at ERROR level
    */
-  error(message: string, error?: Error | unknown, context?: LogContext): void {
+  error(message: string, error?: unknown, context?: LogContext): void {
     const errorContext = error ? { error } : {};
     this.log(LogLevel.ERROR, message, { ...errorContext, ...context });
   }
@@ -408,7 +408,7 @@ export class StructuredLogger {
   /**
    * Log at FATAL level
    */
-  fatal(message: string, error?: Error | unknown, context?: LogContext): void {
+  fatal(message: string, error?: unknown, context?: LogContext): void {
     const errorContext = error ? { error } : {};
     this.log(LogLevel.FATAL, message, { ...errorContext, ...context });
   }
@@ -418,10 +418,10 @@ export class StructuredLogger {
    */
   private log(level: LogLevel, message: string, context?: LogContext): void {
     const sanitizedContext = context && this.config.sanitizeSensitiveData
-      ? sanitizeObject(context)
+      ? sanitizeObject(context) as LogContext
       : context;
 
-    this.logger[level](sanitizedContext || {}, message);
+    this.logger[level](sanitizedContext ?? {}, message);
   }
 
   /**
@@ -474,7 +474,7 @@ export function createComponentLogger(component: string, config?: LoggerConfig):
     ...config,
     baseContext: {
       component,
-      ...(config?.baseContext || {}),
+      ...(config?.baseContext ?? {}),
     },
   });
 }
@@ -487,7 +487,7 @@ export function createDatabaseLogger(database: string, config?: LoggerConfig): S
     ...config,
     baseContext: {
       database,
-      ...(config?.baseContext || {}),
+      ...(config?.baseContext ?? {}),
     },
   });
 }

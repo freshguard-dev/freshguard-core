@@ -156,6 +156,7 @@ export const DEFAULT_SECURITY_CONFIG: SecurityConfig = {
   queryTimeout: 10000,       // 10 seconds
   maxRows: 1000,
   requireSSL: true,
+  /* eslint-disable security/detect-unsafe-regex -- These are SQL query validation patterns, intentionally complex */
   allowedQueryPatterns: [
     // FreshGuard Core monitoring patterns (v0.9.1+) - Updated to handle all whitespace and quoted identifiers
     /^SELECT\s+COUNT\(\*\)(?:\s+as\s+\w+)?\s+FROM\s+[`"]?\w+[`"]?$/is,                    // getRowCount: SELECT COUNT(*) [as alias] FROM table
@@ -182,6 +183,7 @@ export const DEFAULT_SECURITY_CONFIG: SecurityConfig = {
     // Test connection queries
     /^SELECT\s+1(?:\s+as\s+\w+)?$/i,                                                     // SELECT 1 [as alias] (connection test)
   ],
+  /* eslint-enable security/detect-unsafe-regex */
   blockedKeywords: [
     'INSERT', 'UPDATE', 'DELETE', 'DROP', 'ALTER', 'CREATE', 'TRUNCATE',
     '--', '/*', '*/', 'EXEC', 'EXECUTE', 'xp_', 'sp_'

@@ -278,8 +278,8 @@ async function executeWithTimeout<T>(
     // Try to pass AbortSignal if function accepts it
     let result: T;
     try {
-      result = await (fn as any)(controller.signal);
-    } catch (sigError) {
+      result = await (fn as (signal: AbortSignal) => Promise<T>)(controller.signal);
+    } catch {
       // If function doesn't accept signal, try without it
       result = await fn();
     }
@@ -321,21 +321,21 @@ export class RetryPolicy {
   constructor(config: Partial<RetryConfig> = {}) {
     this.config = {
       ...DEFAULT_CONFIG,
-      retryCondition: config.retryCondition || defaultRetryCondition,
-      delayFunction: config.delayFunction || ((attempt: number, baseDelay: number, maxDelay: number) =>
+      retryCondition: config.retryCondition ?? defaultRetryCondition,
+      delayFunction: config.delayFunction ?? ((attempt: number, baseDelay: number, maxDelay: number): number =>
         calculateDelay(attempt, baseDelay, maxDelay, DEFAULT_CONFIG.backoffMultiplier, DEFAULT_CONFIG.enableJitter)),
-      attemptTimeout: config.attemptTimeout || 0, // No timeout by default
-      name: config.name || 'RetryPolicy',
-      maxAttempts: config.maxAttempts || DEFAULT_CONFIG.maxAttempts,
-      baseDelay: config.baseDelay || DEFAULT_CONFIG.baseDelay,
-      maxDelay: config.maxDelay || DEFAULT_CONFIG.maxDelay,
-      backoffMultiplier: config.backoffMultiplier || DEFAULT_CONFIG.backoffMultiplier,
-      enableJitter: config.enableJitter !== undefined ? config.enableJitter : DEFAULT_CONFIG.enableJitter
+      attemptTimeout: config.attemptTimeout ?? 0, // No timeout by default
+      name: config.name ?? 'RetryPolicy',
+      maxAttempts: config.maxAttempts ?? DEFAULT_CONFIG.maxAttempts,
+      baseDelay: config.baseDelay ?? DEFAULT_CONFIG.baseDelay,
+      maxDelay: config.maxDelay ?? DEFAULT_CONFIG.maxDelay,
+      backoffMultiplier: config.backoffMultiplier ?? DEFAULT_CONFIG.backoffMultiplier,
+      enableJitter: config.enableJitter ?? DEFAULT_CONFIG.enableJitter
     };
 
     // Initialize observability
-    this.logger = config.logger || createComponentLogger('retry-policy');
-    this.metrics = config.metrics || createComponentMetrics('retry_policy');
+    this.logger = config.logger ?? createComponentLogger('retry-policy');
+    this.metrics = config.metrics ?? createComponentMetrics('retry_policy');
     this.enableDetailedLogging = config.enableDetailedLogging !== false;
 
     // Validate configuration
@@ -369,7 +369,7 @@ export class RetryPolicy {
     if (result.success && result.data !== undefined) {
       return result.data;
     } else {
-      throw result.error || new Error('Retry failed with unknown error');
+      throw result.error ?? new Error('Retry failed with unknown error');
     }
   }
 
@@ -543,7 +543,7 @@ export class RetryPolicy {
     const totalDuration = Date.now() - startTime;
     this.updateStats(attempts, totalDuration, false);
 
-    const lastError = attempts[attempts.length - 1]?.error || new Error('Unknown error');
+    const lastError = attempts[attempts.length - 1]?.error ?? new Error('Unknown error');
     const retryExhaustedError = new RetryExhaustedError(attempts, totalDuration, lastError);
 
     // Log final failure
@@ -702,7 +702,7 @@ export class RetryPolicyRegistry {
     let policy = this.policies.get(name);
 
     if (!policy) {
-      policy = new RetryPolicy({ ...(config || {}), name });
+      policy = new RetryPolicy({ ...(config ?? {}), name });
       this.policies.set(name, policy);
     }
 

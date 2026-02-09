@@ -8,6 +8,7 @@
 import mysql from 'mysql2/promise';
 import { BaseConnector } from './base-connector.js';
 import type { ConnectorConfig, TableSchema, SecurityConfig } from '../types/connector.js';
+import { type QueryResultRow, rowString } from '../types/driver-results.js';
 import type { SourceCredentials } from '../types.js';
 import {
   ConnectionError,
@@ -47,15 +48,14 @@ export class MySQLConnector extends BaseConnector {
 
     try {
       // Enforce SSL by default for security
-      const connectionConfig: any = {
+      const connectionConfig: mysql.ConnectionOptions = {
         host: this.config.host,
-        port: this.config.port || 3306,
+        port: this.config.port ?? 3306,
         database: this.config.database,
         user: this.config.username,
         password: this.config.password,
         // Security timeouts (mysql2 uses milliseconds)
         connectTimeout: this.connectionTimeout,
-        timeout: this.queryTimeout,
         // MySQL-specific settings
         charset: 'utf8mb4',
         timezone: 'Z', // Use UTC
@@ -85,14 +85,14 @@ export class MySQLConnector extends BaseConnector {
   /**
    * Execute a validated SQL query with security measures
    */
-  protected async executeQuery(sql: string): Promise<any[]> {
+  protected async executeQuery(sql: string): Promise<QueryResultRow[]> {
     return this.executeParameterizedQuery(sql, []);
   }
 
   /**
    * Execute a parameterized SQL query using prepared statements
    */
-  protected async executeParameterizedQuery(sql: string, parameters: any[] = []): Promise<any[]> {
+  protected async executeParameterizedQuery(sql: string, parameters: unknown[] = []): Promise<QueryResultRow[]> {
     await this.connect();
 
     if (!this.connection) {
@@ -103,8 +103,9 @@ export class MySQLConnector extends BaseConnector {
       const result = await this.executeWithTimeout(
         async () => {
           // Use execute for parameterized queries
-          const [rows] = await this.connection!.execute(sql, parameters);
-          return Array.isArray(rows) ? rows : [rows];
+          if (!this.connection) throw new ConnectionError('Database connection not available');
+          const [rows] = await this.connection.execute(sql, parameters);
+          return (Array.isArray(rows) ? rows : [rows]) as Record<string, unknown>[];
         },
         this.queryTimeout
       );
@@ -159,7 +160,8 @@ export class MySQLConnector extends BaseConnector {
 
       await this.executeWithTimeout(
         async () => {
-          const [rows] = await this.connection!.execute(sql);
+          if (!this.connection) throw new ConnectionError('Database connection not available');
+          const [rows] = await this.connection.execute(sql);
           return rows;
         },
         this.connectionTimeout
@@ -197,7 +199,7 @@ export class MySQLConnector extends BaseConnector {
   /**
    * Helper method to merge debug configuration
    */
-  private mergeDebugConfig(debugConfig?: import('../types.js').DebugConfig) {
+  private mergeDebugConfig(debugConfig?: import('../types.js').DebugConfig): import('../types.js').DebugConfig {
     return {
       enabled: debugConfig?.enabled ?? (process.env.NODE_ENV === 'development'),
       exposeQueries: debugConfig?.exposeQueries ?? true,
@@ -251,11 +253,11 @@ export class MySQLConnector extends BaseConnector {
       LIMIT ?
     `;
 
-    this.validateQuery(sql);
+    await this.validateQuery(sql);
 
     try {
       const result = await this.executeParameterizedQuery(sql, [this.config.database, this.maxRows]);
-      return result.map((row: any) => row.table_name || row.TABLE_NAME).filter(Boolean);
+      return result.map((row) => rowString(row.table_name ?? row.TABLE_NAME ?? row.tablename)).filter(Boolean);
     } catch (error) {
       throw new QueryError(
         'Failed to list tables',
@@ -285,7 +287,7 @@ export class MySQLConnector extends BaseConnector {
       LIMIT ?
     `;
 
-    this.validateQuery(sql);
+    await this.validateQuery(sql);
 
     try {
       const result = await this.executeParameterizedQuery(sql, [this.config.database, table, this.maxRows]);
@@ -297,9 +299,9 @@ export class MySQLConnector extends BaseConnector {
       return {
         table,
         columns: result.map(row => ({
-          name: row.column_name || row.COLUMN_NAME,
-          type: this.mapMySQLType(row.data_type || row.DATA_TYPE),
-          nullable: (row.is_nullable || row.IS_NULLABLE) === 'YES'
+          name: rowString(row.column_name ?? row.COLUMN_NAME),
+          type: this.mapMySQLType(rowString(row.data_type ?? row.DATA_TYPE)),
+          nullable: (row.is_nullable ?? row.IS_NULLABLE) === 'YES'
         }))
       };
     } catch (error) {
@@ -343,11 +345,11 @@ export class MySQLConnector extends BaseConnector {
         WHERE table_schema = ? AND table_name = ?
       `;
 
-      this.validateQuery(sql);
+      await this.validateQuery(sql);
       const result = await this.executeParameterizedQuery(sql, [this.config.database, table]);
 
-      if (result.length > 0 && result[0].last_modified) {
-        return new Date(result[0].last_modified);
+      if (result.length > 0 && result[0]?.last_modified) {
+        return new Date(rowString(result[0].last_modified));
       }
     } catch {
       // Information schema query failed, return null
@@ -427,7 +429,7 @@ export class MySQLConnector extends BaseConnector {
       'geometrycollection': 'text'
     };
 
-    return typeMap[mysqlType.toLowerCase()] || 'unknown';
+    return typeMap[mysqlType.toLowerCase()] ?? 'unknown';
   }
 
   /**
@@ -435,7 +437,7 @@ export class MySQLConnector extends BaseConnector {
    */
   protected escapeIdentifier(identifier: string): string {
     // Only allow alphanumeric, underscore, and dot (for database.table)
-    if (!/^[a-zA-Z0-9_\.]+$/.test(identifier)) {
+    if (!/^[a-zA-Z0-9_.]+$/.test(identifier)) {
       throw new Error(`Invalid identifier: ${identifier}`);
     }
 
@@ -461,11 +463,11 @@ export class MySQLConnector extends BaseConnector {
 
     // Convert legacy credentials to new format
     const config: ConnectorConfig = {
-      host: credentials.host || '',
-      port: credentials.port || 3306,
-      database: credentials.database || '',
-      username: credentials.username || '',
-      password: credentials.password || '',
+      host: credentials.host ?? '',
+      port: credentials.port ?? 3306,
+      database: credentials.database ?? '',
+      username: credentials.username ?? '',
+      password: credentials.password ?? '',
       ssl: credentials.sslMode !== 'disable'
     };
 
@@ -522,7 +524,7 @@ export class MySQLConnector extends BaseConnector {
 
       return {
         rowCount,
-        lastUpdate: lastUpdate || undefined
+        lastUpdate: lastUpdate ?? undefined
       };
     } catch (error) {
       throw new QueryError(
@@ -538,6 +540,7 @@ export class MySQLConnector extends BaseConnector {
    * Legacy query method for backward compatibility
    * @deprecated Direct SQL queries are not allowed for security reasons
    */
+  // eslint-disable-next-line @typescript-eslint/require-await -- deprecated stub that always throws
   async query<T = unknown>(_sql: string): Promise<T[]> {
     throw new Error(
       'Direct SQL queries are not allowed for security reasons. Use specific methods like getRowCount(), getMaxTimestamp(), etc.'

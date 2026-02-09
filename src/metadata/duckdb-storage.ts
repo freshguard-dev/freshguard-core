@@ -143,17 +143,17 @@ export class DuckDBMetadataStorage implements MetadataStorage {
     `);
     const rows = reader.getRowObjects();
 
-    return rows.map((row: any) => ({
-      ruleId: row.rule_id,
-      status: row.status,
-      rowCount: row.row_count,
-      lagMinutes: row.lag_minutes,
-      baselineAverage: row.baseline_average,
-      currentDeviationPercent: row.current_deviation_percent,
-      schemaChanges: row.schema_changes ? JSON.parse(row.schema_changes) : undefined,
-      executionDurationMs: row.execution_duration_ms,
-      executedAt: new Date(row.executed_at),
-      error: row.error_message || undefined,
+    return rows.map((row: Record<string, unknown>) => ({
+      ruleId: row.rule_id as string,
+      status: row.status as 'ok' | 'alert' | 'failed' | 'pending',
+      rowCount: row.row_count as number | undefined,
+      lagMinutes: row.lag_minutes as number | undefined,
+      baselineAverage: row.baseline_average as number | undefined,
+      currentDeviationPercent: row.current_deviation_percent as number | undefined,
+      schemaChanges: row.schema_changes ? JSON.parse(row.schema_changes as string) as unknown : undefined,
+      executionDurationMs: row.execution_duration_ms as number | undefined,
+      executedAt: new Date(row.executed_at as string | number | Date),
+      error: (row.error_message as string | undefined) ?? undefined,
     }));
   }
 
@@ -192,17 +192,17 @@ export class DuckDBMetadataStorage implements MetadataStorage {
 
     if (rows.length === 0) return null;
 
-    const row = rows[0] as any;
+    const row = rows[0] as Record<string, unknown>;
     return {
-      id: row.id,
-      sourceId: row.source_id,
-      name: row.name,
-      tableName: row.table_name,
-      ruleType: row.rule_type,
-      checkIntervalMinutes: row.check_interval_minutes,
-      isActive: row.is_active,
-      createdAt: new Date(row.created_at),
-      updatedAt: new Date(row.updated_at),
+      id: row.id as string,
+      sourceId: row.source_id as string,
+      name: row.name as string,
+      tableName: row.table_name as string,
+      ruleType: row.rule_type as MonitoringRule['ruleType'],
+      checkIntervalMinutes: row.check_interval_minutes as number,
+      isActive: row.is_active as boolean,
+      createdAt: new Date(row.created_at as string | number | Date),
+      updatedAt: new Date(row.updated_at as string | number | Date),
     };
   }
 
@@ -243,17 +243,17 @@ export class DuckDBMetadataStorage implements MetadataStorage {
 
     if (rows.length === 0) return null;
 
-    const row = rows[0] as any;
+    const row = rows[0] as Record<string, unknown>;
     return {
-      ruleId: row.rule_id,
-      tableName: row.table_name,
-      schema: JSON.parse(row.schema_snapshot),
-      schemaHash: row.schema_hash,
-      capturedAt: new Date(row.captured_at),
+      ruleId: row.rule_id as string,
+      tableName: row.table_name as string,
+      schema: JSON.parse(row.schema_snapshot as string) as SchemaBaseline['schema'],
+      schemaHash: row.schema_hash as string,
+      capturedAt: new Date(row.captured_at as string | number | Date),
     };
   }
 
-  async close(): Promise<void> {
+  close(): Promise<void> {
     if (this.connection) {
       this.connection.closeSync();
       this.connection = undefined;
@@ -262,5 +262,6 @@ export class DuckDBMetadataStorage implements MetadataStorage {
       this.instance.closeSync();
       this.instance = undefined;
     }
+    return Promise.resolve();
   }
 }

@@ -5,13 +5,13 @@
  * These tests verify that the security measures work in practice, not just in isolation.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { PostgresConnector } from '../src/connectors/postgres.js';
 import { DuckDBConnector } from '../src/connectors/duckdb.js';
 import { BigQueryConnector } from '../src/connectors/bigquery.js';
 import { SnowflakeConnector } from '../src/connectors/snowflake.js';
 import type { ConnectorConfig } from '../src/types/connector.js';
-import { SecurityError, TimeoutError, ConnectionError, QueryError } from '../src/errors/index.js';
+import { SecurityError } from '../src/errors/index.js';
 
 // Security test configurations
 const SECURITY_TEST_CONFIGS = {
@@ -324,7 +324,7 @@ describe('Timeout and DoS Protection', () => {
     await expect(connector.getRowCount('nonexistent')).rejects.toThrow();
   });
 
-  it('should limit result set sizes', async () => {
+  it('should limit result set sizes', () => {
     const limitedConfig = {
       ...SECURITY_TEST_CONFIGS.duckdb,
       maxRows: 5, // Very small limit
@@ -334,6 +334,7 @@ describe('Timeout and DoS Protection', () => {
 
     // This would normally be tested with a real large table
     // For now, we just verify the configuration is applied
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     expect((connector as any).maxRows).toBe(5);
   });
 });

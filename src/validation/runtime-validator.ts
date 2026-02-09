@@ -44,7 +44,7 @@ export class ValidationException extends Error {
 
   constructor(errors: ValidationError[], message?: string) {
     const defaultMessage = `Validation failed with ${errors.length} error${errors.length === 1 ? '' : 's'}`;
-    super(message || defaultMessage);
+    super(message ?? defaultMessage);
     this.name = 'ValidationException';
     this.errors = errors;
     this.timestamp = new Date();
@@ -62,7 +62,7 @@ export class ValidationException extends Error {
   /**
    * Convert to JSON for logging/API responses
    */
-  toJSON() {
+  toJSON(): { name: string; message: string; errors: ValidationError[]; timestamp: Date } {
     return {
       name: this.name,
       message: this.message,
@@ -84,7 +84,7 @@ function formatZodErrors(zodError: z.ZodError): ValidationError[] {
     field: issue.path.join('.') || 'root',
     code: issue.code,
     message: issue.message,
-    value: issue.path.length > 0 ? undefined : (issue as any).received // Don't include sensitive values
+    value: issue.path.length > 0 ? undefined : ('received' in issue ? (issue as { received: unknown }).received : undefined) // Don't include sensitive values
   }));
 }
 
@@ -192,24 +192,24 @@ export class RuntimeValidator {
   /**
    * Validate connector configuration
    */
-  validateConnectorConfig(config: unknown, type?: 'postgres' | 'duckdb' | 'bigquery' | 'snowflake'): ValidationResult<any> {
-    let schema: z.ZodSchema;
+  validateConnectorConfig(config: unknown, type?: 'postgres' | 'duckdb' | 'bigquery' | 'snowflake'): ValidationResult<Record<string, unknown>> {
+    let schema: z.ZodSchema<Record<string, unknown>>;
 
     switch (type) {
       case 'postgres':
-        schema = schemas.PostgresConnectorConfigSchema;
+        schema = schemas.PostgresConnectorConfigSchema as z.ZodSchema<Record<string, unknown>>;
         break;
       case 'duckdb':
-        schema = schemas.DuckDBConnectorConfigSchema;
+        schema = schemas.DuckDBConnectorConfigSchema as z.ZodSchema<Record<string, unknown>>;
         break;
       case 'bigquery':
-        schema = schemas.BigQueryConnectorConfigSchema;
+        schema = schemas.BigQueryConnectorConfigSchema as z.ZodSchema<Record<string, unknown>>;
         break;
       case 'snowflake':
-        schema = schemas.SnowflakeConnectorConfigSchema;
+        schema = schemas.SnowflakeConnectorConfigSchema as z.ZodSchema<Record<string, unknown>>;
         break;
       default:
-        schema = schemas.BaseConnectorConfigSchema;
+        schema = schemas.BaseConnectorConfigSchema as z.ZodSchema<Record<string, unknown>>;
     }
 
     return this.validate(schema, config);
@@ -275,7 +275,7 @@ export class RuntimeValidator {
   /**
    * Get validation statistics
    */
-  getStats() {
+  getStats(): { total: number; successes: number; failures: number; successRate: string } {
     return {
       ...this.validationStats,
       successRate: this.validationStats.total > 0
@@ -287,7 +287,7 @@ export class RuntimeValidator {
   /**
    * Reset validation statistics
    */
-  resetStats() {
+  resetStats(): void {
     this.validationStats = {
       total: 0,
       successes: 0,
@@ -298,7 +298,7 @@ export class RuntimeValidator {
   /**
    * Clear schema cache
    */
-  clearCache() {
+  clearCache(): void {
     this.schemaCache.clear();
   }
 }
@@ -335,11 +335,11 @@ export function validateDatabaseIdentifier(identifier: unknown, type: 'table' | 
 /**
  * Validate connector configuration (convenience function)
  */
-export function validateConnectorConfig(config: unknown, type?: 'postgres' | 'duckdb' | 'bigquery' | 'snowflake'): any {
+export function validateConnectorConfig(config: unknown, type?: 'postgres' | 'duckdb' | 'bigquery' | 'snowflake'): Record<string, unknown> {
   const result = globalValidator.validateConnectorConfig(config, type);
 
   if (!result.success) {
-    throw new ValidationException(result.errors, `Invalid ${type || 'base'} connector configuration`);
+    throw new ValidationException(result.errors, `Invalid ${type ?? 'base'} connector configuration`);
   }
 
   return result.data;
@@ -383,8 +383,8 @@ export function createValidationMiddleware<T>(schema: z.ZodSchema<T>) {
  * Create async validation middleware
  */
 export function createAsyncValidationMiddleware<T>(schema: z.ZodSchema<T>) {
-  return async (data: unknown): Promise<T> => {
-    return globalValidator.validateOrThrow(schema, data);
+  return (data: unknown): Promise<T> => {
+    return Promise.resolve(globalValidator.validateOrThrow(schema, data));
   };
 }
 

@@ -34,7 +34,7 @@ export function validateTableName(name: string): boolean {
   }
 
   // Allow alphanumeric, underscore, and dot (for schema.table notation)
-  if (!/^[a-zA-Z0-9_\.]+$/.test(name)) {
+  if (!/^[a-zA-Z0-9_.]+$/.test(name)) {
     throw new Error('Table name contains invalid characters (only alphanumeric, underscore, and dot allowed)');
   }
 
@@ -153,7 +153,7 @@ export function validateConnectorConfig(config: Partial<ConnectorConfig>): void 
   }
 
   // Basic hostname format validation
-  if (!/^[a-zA-Z0-9\-\.]+$/.test(config.host)) {
+  if (!/^[a-zA-Z0-9\-.]+$/.test(config.host)) {
     throw new Error('Invalid host name format');
   }
 
@@ -223,7 +223,7 @@ export function validateConnectorConfig(config: Partial<ConnectorConfig>): void 
     throw new Error('Database name too long (max 64 characters)');
   }
 
-  if (!/^[a-zA-Z0-9_\-]+$/.test(config.database)) {
+  if (!/^[a-zA-Z0-9_-]+$/.test(config.database)) {
     throw new Error('Database name contains invalid characters');
   }
 }
@@ -253,7 +253,8 @@ export function sanitizeString(input: string, maxLength = 256): string {
   }
 
   // Remove dangerous characters
-  sanitized = sanitized.replace(/[;\/\*\x00-\x1F\x7F]|--/g, '');
+  // eslint-disable-next-line no-control-regex -- Intentional: sanitizing control chars from input
+  sanitized = sanitized.replace(/[;/*\x00-\x1F\x7F]|--/g, '');
 
   // Ensure not empty after sanitization
   if (sanitized.length === 0) {

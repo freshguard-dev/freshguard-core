@@ -48,7 +48,7 @@ interface CLIConfig {
 const args = process.argv.slice(2);
 const command = args[0];
 
-async function main() {
+async function main(): Promise<void> {
   try {
     if (!command) {
       printHelp();
@@ -132,7 +132,7 @@ function validateConfigPath(filePath: string): string {
     }
 
     return resolvedPath;
-  } catch (error) {
+  } catch {
     throw new ConfigurationError('Invalid configuration file path');
   }
 }
@@ -152,6 +152,7 @@ async function handleInit(): Promise<void> {
     console.log('Please set your database connection string as an environment variable:');
     console.log('');
     console.log('For PostgreSQL:');
+    // eslint-disable-next-line no-secrets/no-secrets
     console.log('  export FRESHGUARD_DATABASE_URL="postgresql://user:password@localhost:5432/database?sslmode=require"');
     console.log('');
     console.log('For DuckDB:');
@@ -172,7 +173,9 @@ async function handleInit(): Promise<void> {
 
     // Create configuration directory if it doesn't exist
     const configDir = dirname(validateConfigPath(DEFAULT_CONFIG_FILE));
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
     if (!existsSync(configDir)) {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename
       mkdirSync(configDir, { recursive: true });
     }
 
@@ -201,7 +204,7 @@ async function handleInit(): Promise<void> {
     console.log('  2. Configure monitoring rules in your configuration file');
     console.log('  3. Start monitoring: freshguard run');
 
-  } catch (error) {
+  } catch {
     throw new ConfigurationError('Failed to parse database connection string. Please check the format.');
   }
 }
@@ -213,7 +216,7 @@ async function handleTest(): Promise<void> {
   console.log('🔍 Testing database connection...\n');
 
   const config = await loadConfig();
-  const connectionName = getFlag('--connection') || config.defaultConnection || 'default';
+  const connectionName = getFlag('--connection') ?? config.defaultConnection ?? 'default';
 
   if (!config.connections[connectionName]) {
     throw new ConfigurationError(`Connection '${connectionName}' not found in configuration`);
@@ -242,7 +245,7 @@ async function handleTest(): Promise<void> {
         if (tables.length > 0) {
           console.log(`🔍 Sample tables: ${tables.slice(0, 3).join(', ')}`);
         }
-      } catch (error) {
+      } catch {
         console.log('⚠️  Connection works, but table listing failed (check permissions)');
       }
     } else {
@@ -284,7 +287,7 @@ async function handleRun(): Promise<void> {
   const connector = createSecureConnector(connConfig.type, connConfig);
 
   console.log(`📊 Using ${connConfig.type} connection`);
-  console.log(`🔒 Security mode: ${config.securityMode || 'strict'}`);
+  console.log(`🔒 Security mode: ${config.securityMode ?? 'strict'}`);
 
   // Verify connection before starting
   const isConnected = await connector.testConnection();
@@ -361,16 +364,16 @@ function parseSecureConnectionString(connectionString: string): ConnectorConfig 
     // Security: Extract credentials from environment variables instead of URL when possible
     const config: ConnectorConfig & { type: ConnectorType } = {
       type,
-      host: url.hostname || 'localhost',
+      host: url.hostname ?? 'localhost',
       port: url.port ? parseInt(url.port, 10) : getDefaultPort(type),
-      database: url.pathname.slice(1) || '', // Remove leading slash
-      username: url.username || process.env.FRESHGUARD_DB_USER || '',
-      password: url.password || process.env.FRESHGUARD_DB_PASSWORD || '',
+      database: url.pathname.slice(1) ?? '', // Remove leading slash
+      username: url.username ?? process.env.FRESHGUARD_DB_USER ?? '',
+      password: url.password ?? process.env.FRESHGUARD_DB_PASSWORD ?? '',
       ssl: url.searchParams.get('sslmode') !== 'disable' && url.searchParams.get('ssl') !== 'false',
     };
 
     return config;
-  } catch (error) {
+  } catch {
     throw new ConfigurationError('Invalid database connection string format');
   }
 }
@@ -391,7 +394,7 @@ function getDefaultPort(type: ConnectorType): number {
 /**
  * Create secure database connector
  */
-function createSecureConnector(type: ConnectorType, config: ConnectorConfig) {
+function createSecureConnector(type: ConnectorType, config: ConnectorConfig): PostgresConnector | DuckDBConnector | BigQueryConnector | SnowflakeConnector {
   switch (type) {
     case 'postgres':
       return new PostgresConnector(config);
@@ -413,6 +416,7 @@ async function loadConfig(): Promise<CLIConfig> {
   try {
     const configPath = validateConfigPath(DEFAULT_CONFIG_FILE);
 
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
     if (!existsSync(configPath)) {
       throw new ConfigurationError('Configuration file not found. Run: freshguard init');
     }
@@ -445,7 +449,7 @@ function getFlag(flag: string): string | undefined {
   return undefined;
 }
 
-function printHelp() {
+function printHelp(): void {
   console.log('FreshGuard CLI - Secure Data Pipeline Monitoring');
   console.log('');
   console.log('Usage:');
@@ -460,6 +464,7 @@ function printHelp() {
   console.log('');
   console.log('Examples:');
   console.log('  # Set database URL and initialize');
+  // eslint-disable-next-line no-secrets/no-secrets
   console.log('  export FRESHGUARD_DATABASE_URL="postgresql://user:pass@localhost:5432/db"');
   console.log('  freshguard init');
   console.log('');
@@ -485,7 +490,7 @@ function printHelp() {
   console.log('  https://github.com/freshguard/freshguard');
 }
 
-main().catch((error) => {
-  console.error('Error:', error.message);
+main().catch((error: unknown) => {
+  console.error('Error:', error instanceof Error ? error.message : String(error));
   process.exit(1);
 });

@@ -55,7 +55,7 @@ export class DebugErrorFactory {
 
     return new QueryError(
       message,
-      queryContext?.operation || 'query',
+      queryContext?.operation ?? 'query',
       queryContext?.table,
       rawError,
       debug

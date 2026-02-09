@@ -80,7 +80,7 @@ export async function checkVolumeAnomaly(
     // Get current row count with timeout protection
     const currentRowCount = await executeWithTimeout(
       () => getCurrentRowCount(connector, rule.tableName, debugConfig, debugFactory),
-      config?.timeoutMs || timeoutMs,
+      config?.timeoutMs ?? timeoutMs,
       'Volume check row count query timeout'
     );
 
@@ -227,7 +227,7 @@ export async function checkVolumeAnomaly(
 
     // Add debug information if available
     if (debugConfig.enabled && error instanceof Error && 'debug' in error) {
-      result.debug = (error as any).debug;
+      result.debug = (error as { debug: import('../types.js').DebugInfo }).debug;
     }
 
     return result;
@@ -429,7 +429,7 @@ function createSecureCheckResult(status: CheckResult['status'], data: Partial<Ch
   return {
     ...data,
     status,
-    executedAt: data.executedAt || new Date(),
+    executedAt: data.executedAt ?? new Date(),
     executionDurationMs: data.executionDurationMs
   };
 }

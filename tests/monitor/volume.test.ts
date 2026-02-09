@@ -13,8 +13,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { checkVolumeAnomaly } from '../../src/monitor/volume.js';
 import type { MonitoringRule } from '../../src/types.js';
 import type { Connector } from '../../src/types/connector.js';
-import type { MetadataStorage, CheckExecution } from '../../src/metadata/types.js';
-import { ConfigurationError, QueryError, TimeoutError } from '../../src/errors/index.js';
+import type { MetadataStorage } from '../../src/metadata/interface.js';
+import type { MetadataCheckExecution as CheckExecution } from '../../src/metadata/types.js';
 
 // Mock connector
 const mockConnector: Connector = {
@@ -35,6 +35,8 @@ const mockMetadataStorage: MetadataStorage = {
   getHistoricalData: vi.fn(),
   saveRule: vi.fn(),
   getRule: vi.fn(),
+  storeSchemaBaseline: vi.fn(),
+  getSchemaBaseline: vi.fn(),
   close: vi.fn(),
 };
 
@@ -113,9 +115,9 @@ function createWeeklyPatternData(weeks = 2): CheckExecution[] {
 describe('checkVolumeAnomaly', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockConnector.getRowCount.mockResolvedValue(1000);
-    mockMetadataStorage.getHistoricalData.mockResolvedValue([]);
-    mockMetadataStorage.saveExecution.mockResolvedValue(undefined);
+    vi.mocked(mockConnector.getRowCount).mockResolvedValue(1000);
+    vi.mocked(mockMetadataStorage.getHistoricalData).mockResolvedValue([]);
+    vi.mocked(mockMetadataStorage.saveExecution).mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -137,7 +139,7 @@ describe('checkVolumeAnomaly', () => {
         createHistoricalExecution(1100, 3),
       ];
 
-      mockMetadataStorage.getHistoricalData.mockResolvedValue(historicalData);
+      vi.mocked(mockMetadataStorage.getHistoricalData).mockResolvedValue(historicalData);
 
       const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
@@ -159,7 +161,7 @@ describe('checkVolumeAnomaly', () => {
         createHistoricalExecution(1100, 3),
       ];
 
-      mockMetadataStorage.getHistoricalData.mockResolvedValue(historicalData);
+      vi.mocked(mockMetadataStorage.getHistoricalData).mockResolvedValue(historicalData);
 
       const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
@@ -189,7 +191,7 @@ describe('checkVolumeAnomaly', () => {
         createHistoricalExecution(1200, 2),
       ];
 
-      mockMetadataStorage.getHistoricalData.mockResolvedValue(historicalData);
+      vi.mocked(mockMetadataStorage.getHistoricalData).mockResolvedValue(historicalData);
 
       const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
@@ -213,7 +215,7 @@ describe('checkVolumeAnomaly', () => {
         createHistoricalExecution(1000 + (i * 50), i + 1)
       );
 
-      mockMetadataStorage.getHistoricalData.mockResolvedValue(historicalData);
+      vi.mocked(mockMetadataStorage.getHistoricalData).mockResolvedValue(historicalData);
 
       const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
@@ -231,7 +233,7 @@ describe('checkVolumeAnomaly', () => {
       };
 
       const weeklyData = createWeeklyPatternData(2);
-      mockMetadataStorage.getHistoricalData.mockResolvedValue(weeklyData);
+      vi.mocked(mockMetadataStorage.getHistoricalData).mockResolvedValue(weeklyData);
 
       const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
@@ -254,7 +256,7 @@ describe('checkVolumeAnomaly', () => {
       };
 
       const weeklyData = createWeeklyPatternData(3); // Three weeks for seasonal adjustment
-      mockMetadataStorage.getHistoricalData.mockResolvedValue(weeklyData);
+      vi.mocked(mockMetadataStorage.getHistoricalData).mockResolvedValue(weeklyData);
 
       const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
@@ -280,7 +282,7 @@ describe('checkVolumeAnomaly', () => {
         createHistoricalExecution(1000, 1),
       ]; // Only 2 data points
 
-      mockMetadataStorage.getHistoricalData.mockResolvedValue(insufficientData);
+      vi.mocked(mockMetadataStorage.getHistoricalData).mockResolvedValue(insufficientData);
 
       const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
@@ -300,7 +302,7 @@ describe('checkVolumeAnomaly', () => {
         createHistoricalExecution(1000, 1),
       ]; // Only 2 data points
 
-      mockMetadataStorage.getHistoricalData.mockResolvedValue(insufficientData);
+      vi.mocked(mockMetadataStorage.getHistoricalData).mockResolvedValue(insufficientData);
 
       const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
@@ -322,8 +324,8 @@ describe('checkVolumeAnomaly', () => {
         createHistoricalExecution(1000, 3),
       ];
 
-      mockConnector.getRowCount.mockResolvedValue(1300); // 30% increase
-      mockMetadataStorage.getHistoricalData.mockResolvedValue(historicalData);
+      vi.mocked(mockConnector.getRowCount).mockResolvedValue(1300); // 30% increase
+      vi.mocked(mockMetadataStorage.getHistoricalData).mockResolvedValue(historicalData);
 
       const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
@@ -345,8 +347,8 @@ describe('checkVolumeAnomaly', () => {
         createHistoricalExecution(1000, 3),
       ];
 
-      mockConnector.getRowCount.mockResolvedValue(1200); // 20% increase
-      mockMetadataStorage.getHistoricalData.mockResolvedValue(historicalData);
+      vi.mocked(mockConnector.getRowCount).mockResolvedValue(1200); // 20% increase
+      vi.mocked(mockMetadataStorage.getHistoricalData).mockResolvedValue(historicalData);
 
       const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
@@ -362,7 +364,7 @@ describe('checkVolumeAnomaly', () => {
         minimumRowCount: 100,
       };
 
-      mockConnector.getRowCount.mockResolvedValue(50); // Below minimum
+      vi.mocked(mockConnector.getRowCount).mockResolvedValue(50); // Below minimum
 
       const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
@@ -384,8 +386,8 @@ describe('checkVolumeAnomaly', () => {
         createHistoricalExecution(900, 1),
       ];
 
-      mockConnector.getRowCount.mockResolvedValue(1050); // Above minimum
-      mockMetadataStorage.getHistoricalData.mockResolvedValue(historicalData);
+      vi.mocked(mockConnector.getRowCount).mockResolvedValue(1050); // Above minimum
+      vi.mocked(mockMetadataStorage.getHistoricalData).mockResolvedValue(historicalData);
 
       const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
@@ -406,7 +408,7 @@ describe('checkVolumeAnomaly', () => {
 
       // Mock a slow query that should timeout
       const slowPromise = new Promise(resolve => setTimeout(resolve, 15000));
-      mockConnector.getRowCount.mockReturnValue(slowPromise);
+      vi.mocked(mockConnector.getRowCount).mockReturnValue(slowPromise);
 
       const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
@@ -423,7 +425,7 @@ describe('checkVolumeAnomaly', () => {
       };
 
       // Mock a query that takes longer than timeout
-      mockConnector.getRowCount.mockImplementation(() =>
+      vi.mocked(mockConnector.getRowCount).mockImplementation(() =>
         new Promise(resolve => setTimeout(() => resolve(1000), 2000))
       );
 
@@ -450,7 +452,7 @@ describe('checkVolumeAnomaly', () => {
     it('should handle database connection errors', async () => {
       const rule = { ...baseRule };
 
-      mockConnector.getRowCount.mockRejectedValue(new Error('Connection lost'));
+      vi.mocked(mockConnector.getRowCount).mockRejectedValue(new Error('Connection lost'));
 
       const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
@@ -461,13 +463,8 @@ describe('checkVolumeAnomaly', () => {
     it('should handle metadata storage failures gracefully', async () => {
       const rule = { ...baseRule };
 
-      const historicalData = [
-        createHistoricalExecution(1000, 3),
-        createHistoricalExecution(1100, 2),
-        createHistoricalExecution(900, 1),
-      ];
-
-      mockMetadataStorage.getHistoricalData.mockRejectedValue(new Error('Storage failure'));
+      // Historical data would normally be used, but storage rejects
+      vi.mocked(mockMetadataStorage.getHistoricalData).mockRejectedValue(new Error('Storage failure'));
       // Should continue without historical data
 
       const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
@@ -484,8 +481,8 @@ describe('checkVolumeAnomaly', () => {
         createHistoricalExecution(900, 1),
       ];
 
-      mockMetadataStorage.getHistoricalData.mockResolvedValue(historicalData);
-      mockMetadataStorage.saveExecution.mockRejectedValue(new Error('Save failed'));
+      vi.mocked(mockMetadataStorage.getHistoricalData).mockResolvedValue(historicalData);
+      vi.mocked(mockMetadataStorage.saveExecution).mockRejectedValue(new Error('Save failed'));
 
       const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
@@ -507,10 +504,11 @@ describe('checkVolumeAnomaly', () => {
         createHistoricalExecution(900, 1),
       ];
 
-      mockMetadataStorage.getHistoricalData.mockResolvedValue(historicalData);
+      vi.mocked(mockMetadataStorage.getHistoricalData).mockResolvedValue(historicalData);
 
       await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
+      /* eslint-disable @typescript-eslint/no-unsafe-assignment */
       expect(mockMetadataStorage.saveExecution).toHaveBeenCalledWith(
         expect.objectContaining({
           ruleId: rule.id,
@@ -522,6 +520,7 @@ describe('checkVolumeAnomaly', () => {
           executedAt: expect.any(Date),
         })
       );
+      /* eslint-enable @typescript-eslint/no-unsafe-assignment */
     });
 
     it('should save execution result for anomaly detection', async () => {
@@ -536,8 +535,8 @@ describe('checkVolumeAnomaly', () => {
         createHistoricalExecution(1000, 1),
       ];
 
-      mockConnector.getRowCount.mockResolvedValue(1300); // Significant increase
-      mockMetadataStorage.getHistoricalData.mockResolvedValue(historicalData);
+      vi.mocked(mockConnector.getRowCount).mockResolvedValue(1300); // Significant increase
+      vi.mocked(mockMetadataStorage.getHistoricalData).mockResolvedValue(historicalData);
 
       await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
@@ -553,10 +552,11 @@ describe('checkVolumeAnomaly', () => {
     it('should save execution result for error cases', async () => {
       const rule = { ...baseRule };
 
-      mockConnector.getRowCount.mockRejectedValue(new Error('Query failed'));
+      vi.mocked(mockConnector.getRowCount).mockRejectedValue(new Error('Query failed'));
 
       await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 
+      /* eslint-disable @typescript-eslint/no-unsafe-assignment */
       expect(mockMetadataStorage.saveExecution).toHaveBeenCalledWith(
         expect.objectContaining({
           status: 'failed',
@@ -564,6 +564,7 @@ describe('checkVolumeAnomaly', () => {
           executionDurationMs: expect.any(Number),
         })
       );
+      /* eslint-enable @typescript-eslint/no-unsafe-assignment */
     });
   });
 
@@ -577,7 +578,7 @@ describe('checkVolumeAnomaly', () => {
         createHistoricalExecution(900, 1),
       ];
 
-      mockMetadataStorage.getHistoricalData.mockResolvedValue(historicalData);
+      vi.mocked(mockMetadataStorage.getHistoricalData).mockResolvedValue(historicalData);
 
       const result = await checkVolumeAnomaly(mockConnector, rule, mockMetadataStorage);
 

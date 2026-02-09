@@ -68,6 +68,7 @@ export const TableNameSchema = z.string()
   .min(1, 'Table name cannot be empty')
   .max(256, 'Table name too long (max 256 characters)')
   .regex(
+    // eslint-disable-next-line security/detect-unsafe-regex -- Bounded input (max 256 chars), no catastrophic backtracking
     /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)?$/,
     'Table name must be a valid identifier or schema.table format'
   )
@@ -80,7 +81,8 @@ export const TableNameSchema = z.string()
   })
   .refine((name) => {
     // Additional security check - ensure no dangerous patterns
-    return !(/[;\/\*\x00-\x1F\x7F]|--/.exec(name));
+    // eslint-disable-next-line no-control-regex -- Intentional: blocking control chars in identifiers
+    return !(/[;/*\x00-\x1F\x7F]|--/.exec(name));
   }, 'Table name contains dangerous characters');
 
 /**
@@ -118,7 +120,7 @@ export const DatabaseIdentifierSchema = z.object({
 export const HostnameSchema = z.string()
   .min(1, 'Host is required')
   .max(255, 'Host name too long (max 255 characters)')
-  .regex(/^[a-zA-Z0-9\-\.]+$/, 'Invalid host name format')
+  .regex(/^[a-zA-Z0-9\-.]+$/, 'Invalid host name format')
   .refine((host) => {
     // Prevent localhost variations in production (configurable)
     const isLocalhost = /^(localhost|127\.|::1|0\.0\.0\.0)/.test(host);
@@ -175,7 +177,8 @@ export const DatabaseCredentialsSchema = z.object({
     .max(64, 'Username too long (max 64 characters)')
     .refine((username) => {
       // Prevent obvious injection attempts in username
-      return !(/[;\/\*\x00-\x1F\x7F]|--/.exec(username));
+      // eslint-disable-next-line no-control-regex -- Intentional: blocking control chars in credentials
+      return !(/[;/*\x00-\x1F\x7F]|--/.exec(username));
     }, 'Username contains invalid characters'),
 
   password: z.string()
@@ -189,7 +192,7 @@ export const DatabaseCredentialsSchema = z.object({
 export const DatabaseNameSchema = z.string()
   .min(1, 'Database name is required')
   .max(64, 'Database name too long (max 64 characters)')
-  .regex(/^[a-zA-Z0-9_\-]+$/, 'Database name contains invalid characters (only alphanumeric, underscore, and hyphen allowed)')
+  .regex(/^[a-zA-Z0-9_-]+$/, 'Database name contains invalid characters (only alphanumeric, underscore, and hyphen allowed)')
   .refine((name) => {
     return !(SQL_RESERVED_KEYWORDS as readonly string[]).includes(name.toUpperCase());
   }, 'Database name cannot be a reserved SQL keyword');
@@ -259,7 +262,7 @@ export const BigQueryConnectorConfigSchema = z.object({
   projectId: z.string()
     .min(1, 'Project ID is required')
     .max(63, 'Project ID too long')
-    .regex(/^[a-z0-9\-]+$/, 'Project ID must contain only lowercase letters, numbers, and hyphens'),
+    .regex(/^[a-z0-9-]+$/, 'Project ID must contain only lowercase letters, numbers, and hyphens'),
   keyFilename: z.string().optional(), // Path to service account JSON
   credentials: z.object({}).passthrough().optional(), // Service account JSON object
   dataset: z.string().max(1024).optional(),
@@ -269,7 +272,7 @@ export const BigQueryConnectorConfigSchema = z.object({
   maxRows: MaxRowsSchema.optional()
 }).refine((config) => {
   // Must have either keyFilename or credentials
-  return config.keyFilename || config.credentials;
+  return config.keyFilename ?? config.credentials;
 }, {
   message: 'Either keyFilename or credentials must be provided',
   path: ['credentials']
@@ -310,7 +313,8 @@ export const SanitizedStringSchema = z.string()
   .refine((input) => input.length > 0, 'Input is empty after sanitization')
   .transform((input) => {
     // Remove dangerous characters
-    return input.replace(/[;\/\*\x00-\x1F\x7F]|--/g, '');
+    // eslint-disable-next-line no-control-regex -- Intentional: sanitizing control chars from input
+    return input.replace(/[;/*\x00-\x1F\x7F]|--/g, '');
   })
   .refine((input) => input.length > 0, 'Input is empty after removing dangerous characters');
 

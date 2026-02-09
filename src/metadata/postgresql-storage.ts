@@ -119,13 +119,13 @@ export class PostgreSQLMetadataStorage implements MetadataStorage {
       return results.map(row => ({
         ruleId: row.ruleId,
         status: row.status as 'ok' | 'alert' | 'failed',
-        rowCount: row.rowCount || undefined,
-        lagMinutes: row.lagMinutes || undefined,
+        rowCount: row.rowCount ?? undefined,
+        lagMinutes: row.lagMinutes ?? undefined,
         deviation: row.deviation ? parseFloat(row.deviation) : undefined,
         baselineAverage: row.baselineAverage ? parseFloat(row.baselineAverage) : undefined,
-        executionDurationMs: row.executionDurationMs || undefined,
-        executedAt: row.executedAt || new Date(),
-        error: row.error || undefined,
+        executionDurationMs: row.executionDurationMs ?? undefined,
+        executedAt: row.executedAt ?? new Date(),
+        error: row.error ?? undefined,
       }));
     } catch (error) {
       const sanitizedError = ErrorHandler.sanitize(error);
@@ -199,10 +199,10 @@ export class PostgreSQLMetadataStorage implements MetadataStorage {
         name: row.name,
         tableName: row.tableName,
         ruleType: row.ruleType as import('../types.js').RuleType,
-        checkIntervalMinutes: row.checkIntervalMinutes || 5,
-        isActive: row.isActive || false,
-        createdAt: row.createdAt || new Date(),
-        updatedAt: row.updatedAt || new Date(),
+        checkIntervalMinutes: row.checkIntervalMinutes ?? 5,
+        isActive: row.isActive ?? false,
+        createdAt: row.createdAt ?? new Date(),
+        updatedAt: row.updatedAt ?? new Date(),
       };
     } catch (error) {
       const sanitizedError = ErrorHandler.sanitize(error);
@@ -226,7 +226,7 @@ export class PostgreSQLMetadataStorage implements MetadataStorage {
           schemaHash: baseline.schemaHash,
           capturedAt: baseline.capturedAt,
           updatedAt: new Date(),
-          adaptationReason: adaptationReason || null,
+          adaptationReason: adaptationReason ?? null,
         })
         .onConflictDoUpdate({
           target: [schemaBaselines.ruleId],
@@ -236,7 +236,7 @@ export class PostgreSQLMetadataStorage implements MetadataStorage {
             schemaHash: baseline.schemaHash,
             capturedAt: baseline.capturedAt,
             updatedAt: new Date(),
-            adaptationReason: adaptationReason || null,
+            adaptationReason: adaptationReason ?? null,
           },
         });
     } catch (error) {
@@ -276,7 +276,7 @@ export class PostgreSQLMetadataStorage implements MetadataStorage {
       return {
         ruleId: row.ruleId,
         tableName: row.tableName,
-        schema: row.schema as any, // JSONB column
+        schema: row.schema as SchemaBaseline['schema'], // JSONB column
         schemaHash: row.schemaHash,
         capturedAt: row.capturedAt,
       };

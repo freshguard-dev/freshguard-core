@@ -20,7 +20,7 @@ export interface MetadataMonitoringRule {
   id: string;
   name: string;
   type: 'freshness' | 'volume' | 'custom';
-  config: Record<string, any>;
+  config: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;
 }

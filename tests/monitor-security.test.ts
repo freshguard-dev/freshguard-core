@@ -8,7 +8,7 @@
  * - Parameter validation and range checks
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { checkFreshness } from '../src/monitor/freshness.js';
 import { checkVolumeAnomaly } from '../src/monitor/volume.js';
 import type { MonitoringRule } from '../src/types.js';
@@ -16,7 +16,7 @@ import type { Database } from '../src/db/index.js';
 
 // Mock database for testing
 const mockDb = {
-  execute: async () => {
+  execute: () => {
     throw new Error('Database connection failed - test error');
   }
 } as Database;
@@ -148,7 +148,7 @@ describe('Monitoring Algorithm Security', () => {
     it('should validate rule type', async () => {
       const wrongTypeRule = {
         ...validFreshnessRule,
-        ruleType: 'volume_anomaly' as any
+        ruleType: 'volume_anomaly' as MonitoringRule['ruleType']
       };
 
       const result = await checkFreshness(mockDb, wrongTypeRule);
@@ -157,10 +157,10 @@ describe('Monitoring Algorithm Security', () => {
     });
 
     it('should reject null/undefined rules', async () => {
-      const result1 = await checkFreshness(mockDb, null as any);
+      const result1 = await checkFreshness(mockDb, null as unknown as MonitoringRule);
       expect(result1.status).toBe('failed');
 
-      const result2 = await checkFreshness(mockDb, undefined as any);
+      const result2 = await checkFreshness(mockDb, undefined as unknown as MonitoringRule);
       expect(result2.status).toBe('failed');
     });
   });
@@ -208,7 +208,7 @@ describe('Monitoring Algorithm Security', () => {
     });
 
     it('should validate minimum row count parameters', async () => {
-      const invalidMinimums = [-1, 'invalid' as any];
+      const invalidMinimums: (number | string)[] = [-1, 'invalid'];
 
       for (const minimum of invalidMinimums) {
         const invalidRule = {
@@ -225,7 +225,7 @@ describe('Monitoring Algorithm Security', () => {
     it('should validate rule type', async () => {
       const wrongTypeRule = {
         ...validVolumeRule,
-        ruleType: 'freshness' as any
+        ruleType: 'freshness' as MonitoringRule['ruleType']
       };
 
       const result = await checkVolumeAnomaly(mockDb, wrongTypeRule);

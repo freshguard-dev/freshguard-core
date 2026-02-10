@@ -1,6 +1,6 @@
 {
   "name": "@freshguard/freshguard-core",
-  "version": "0.13.0",
+  "version": "0.13.1",
   "description": "Open source data freshness monitoring engine",
   "type": "module",
   "main": "./dist/index.js",
@@ -56,9 +56,9 @@
     "drizzle-orm": "^0.45.1",
     "mysql2": "^3.16.3",
     "pg": "^8.18.0",
-    "pino": "^10.3.0",
+    "pino": "^10.3.1",
     "postgres": "^3.4.8",
-    "snowflake-sdk": "^2.3.3",
+    "snowflake-sdk": "^2.3.4",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -73,9 +73,9 @@
     "eslint": "^9.39.2",
     "eslint-plugin-no-secrets": "^2.2.1",
     "eslint-plugin-security": "^3.0.1",
-    "pnpm": "^10.29.1",
+    "pnpm": "^10.29.2",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.54.0",
+    "typescript-eslint": "^8.55.0",
     "vitest": "^4.0.18"
   },
   "optionalDependencies": {
@@ -88,7 +88,13 @@
   "pnpm": {
     "overrides": {
       "fast-xml-parser": "5.3.4"
-    }
+    },
+    "onlyBuiltDependencies": [
+      "core-js",
+      "core-js-pure",
+      "duckdb",
+      "esbuild"
+    ]
   },
   "keywords": [
     "data-quality",

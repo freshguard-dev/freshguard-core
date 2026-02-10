@@ -1,6 +1,10 @@
+import {readFileSync} from 'node:fs';
 import {themes as prismThemes} from 'prism-react-renderer';
 import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
+
+const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8'));
+const versionLabel = pkg.version.replace(/\.\d+$/, '.x'); // 0.13.0 -> 0.13.x
 
 const config: Config = {
   title: 'FreshGuard Core',
@@ -53,7 +57,7 @@ const config: Config = {
           lastVersion: 'current',
           versions: {
             current: {
-              label: '0.12.x',
+              label: versionLabel,
             },
           },
         },

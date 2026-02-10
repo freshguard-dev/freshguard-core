@@ -483,9 +483,10 @@ jobs:
   verify-published:
     needs: publish
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Wait for npm propagation
-        run: sleep 30
+        run: sleep 60
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v3
@@ -505,10 +506,10 @@ jobs:
           echo '{"name":"test-install","version":"1.0.0","type":"module"}' > package.json
 
           echo "Testing published packages..."
-          pnpm install @freshguard/freshguard-core@${{ needs.publish.outputs.version }}
+          pnpm install --ignore-scripts @freshguard/freshguard-core@${{ needs.publish.outputs.version }}
 
           node -e "
-            import('@freshguard/freshguard-core').then(({ checkFreshness, createDatabase, DataSourceType }) => {
+            import('@freshguard/freshguard-core').then(({ checkFreshness, createDatabase }) => {
               console.log('✅ Published package works correctly');
               console.log('✅ checkFreshness:', typeof checkFreshness);
               console.log('✅ createDatabase:', typeof createDatabase);

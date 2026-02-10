@@ -27,13 +27,36 @@ import type { QueryContext } from '../errors/debug-factory.js';
 import { SchemaBaselineManager, SchemaComparer } from './schema-baseline.js';
 
 /**
- * Check database schema changes for a given rule with security validation
+ * Detect schema changes by comparing the current table schema against a stored
+ * baseline. Returns `'alert'` when columns are added, removed, or modified.
+ *
+ * On the first run (no baseline), stores the current schema and returns `'ok'`.
+ * Subsequent runs compare against that baseline. The `adaptationMode` in
+ * `rule.schemaChangeConfig` controls whether safe changes auto-update the baseline.
+ *
+ * Requires metadata storage to persist schema baselines.
  *
  * @param connector - Database connector instance
- * @param rule - Monitoring rule configuration
- * @param metadataStorage - Optional metadata storage for baseline persistence
- * @param config - Optional configuration including debug settings
- * @returns CheckResult with schema change status and sanitized error messages
+ * @param rule - Monitoring rule with `ruleType: 'schema_change'` and optional `schemaChangeConfig`
+ * @param metadataStorage - Metadata storage for schema baseline persistence
+ * @param config - Optional configuration including debug settings and timeouts
+ * @returns CheckResult with `status` and `schemaChanges` containing added/removed/modified columns
+ * @throws {ConfigurationError} If the rule is missing required schema change fields
+ * @throws {QueryError} If the schema query fails
+ * @throws {TimeoutError} If the query exceeds the configured timeout
+ *
+ * @example
+ * ```typescript
+ * import { checkSchemaChanges, createMetadataStorage, PostgresConnector } from '@freshguard/freshguard-core';
+ *
+ * const connector = new PostgresConnector({ host: 'localhost', database: 'mydb', username: 'user', password: 'pass', ssl: true });
+ * const storage = await createMetadataStorage();
+ * const rule = { id: 'r1', sourceId: 's1', name: 'Users Schema', tableName: 'users', ruleType: 'schema_change' as const, checkIntervalMinutes: 60, isActive: true, schemaChangeConfig: { adaptationMode: 'manual' as const, monitoringMode: 'full' as const }, createdAt: new Date(), updatedAt: new Date() };
+ * const result = await checkSchemaChanges(connector, rule, storage);
+ * if (result.schemaChanges?.hasChanges) { console.log(result.schemaChanges.summary); }
+ * ```
+ *
+ * @since 0.10.0
  */
 export async function checkSchemaChanges(
   connector: Connector,

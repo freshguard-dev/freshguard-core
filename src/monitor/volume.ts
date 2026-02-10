@@ -28,13 +28,33 @@ import { BaselineConfigResolver } from './baseline-config.js';
 import { BaselineCalculator } from './baseline-calculator.js';
 
 /**
- * Check volume anomaly for a given rule with security validation
+ * Check for volume anomalies by comparing the current row count against a
+ * historical baseline. Returns `'alert'` when the deviation exceeds the
+ * configured threshold, or `'pending'` while the baseline is being built.
+ *
+ * Requires metadata storage to persist and retrieve historical row counts.
+ * At least 3 historical data points are needed before anomaly detection activates.
  *
  * @param connector - Database connector instance
- * @param rule - Monitoring rule configuration
- * @param metadataStorage - Metadata storage for historical data
- * @param config - Optional configuration including debug settings
- * @returns CheckResult with volume anomaly status and sanitized error messages
+ * @param rule - Monitoring rule with `ruleType: 'volume_anomaly'`
+ * @param metadataStorage - Metadata storage for historical baseline data
+ * @param config - Optional configuration including debug settings and timeouts
+ * @returns CheckResult with `status`, `rowCount`, `deviation`, and optionally `debug` info
+ * @throws {ConfigurationError} If the rule is missing required volume fields
+ * @throws {TimeoutError} If the query exceeds the configured timeout
+ *
+ * @example
+ * ```typescript
+ * import { checkVolumeAnomaly, createMetadataStorage, PostgresConnector } from '@freshguard/freshguard-core';
+ *
+ * const connector = new PostgresConnector({ host: 'localhost', database: 'mydb', username: 'user', password: 'pass', ssl: true });
+ * const storage = await createMetadataStorage();
+ * const rule = { id: 'r1', sourceId: 's1', name: 'Orders Volume', tableName: 'orders', ruleType: 'volume_anomaly' as const, checkIntervalMinutes: 15, isActive: true, createdAt: new Date(), updatedAt: new Date() };
+ * const result = await checkVolumeAnomaly(connector, rule, storage);
+ * console.log(result.status, result.deviation);
+ * ```
+ *
+ * @since 0.1.0
  */
 export async function checkVolumeAnomaly(
   connector: Connector,

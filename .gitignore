@@ -329,6 +329,11 @@ sentry.properties
 docs/generated/
 docs/build/
 
+# Docusaurus
+website/build/
+website/.docusaurus/
+website/node_modules/
+
 # ===================================
 # Project Specific
 # ===================================

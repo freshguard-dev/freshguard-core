@@ -8,7 +8,31 @@ import { DuckDBMetadataStorage } from './duckdb-storage.js';
 import { PostgreSQLMetadataStorage } from './postgresql-storage.js';
 
 /**
- * Create metadata storage with auto-detection or explicit config
+ * Create and initialize a metadata storage instance.
+ *
+ * Defaults to embedded DuckDB when called without arguments (zero-setup).
+ * Pass a config object to use PostgreSQL or customize the DuckDB path.
+ *
+ * @param config - Optional storage configuration. Omit for default DuckDB storage.
+ * @returns Initialized MetadataStorage ready for use
+ * @throws {Error} If `type` is `'postgresql'` and `url` is not provided
+ *
+ * @example
+ * ```typescript
+ * // Zero-setup DuckDB (default)
+ * const storage = await createMetadataStorage();
+ *
+ * // Custom DuckDB path
+ * const storage = await createMetadataStorage({ type: 'duckdb', path: './data/meta.db' });
+ *
+ * // PostgreSQL
+ * const storage = await createMetadataStorage({
+ *   type: 'postgresql',
+ *   url: 'postgresql://user:pass@host:5432/freshguard_metadata',
+ * });
+ * ```
+ *
+ * @since 0.6.0
  */
 export async function createMetadataStorage(
   config?: MetadataStorageConfig

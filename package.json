@@ -46,7 +46,9 @@
     "clean": "rm -rf dist",
     "prepare": "pnpm build",
     "pre-commit": "pnpm lint:check && pnpm build && pnpm type-check && pnpm test:coverage",
-    "prepublishOnly": "pnpm build && pnpm test"
+    "prepublishOnly": "pnpm build && pnpm test",
+    "docs:dev": "pnpm --filter @freshguard/docs start",
+    "docs:build": "pnpm --filter @freshguard/docs build"
   },
   "dependencies": {
     "@duckdb/node-api": "1.4.4-r.1",
@@ -88,7 +90,24 @@
       "fast-xml-parser": "5.3.4"
     }
   },
+  "keywords": [
+    "data-quality",
+    "freshness",
+    "monitoring",
+    "pipeline",
+    "data-observability",
+    "postgresql",
+    "duckdb",
+    "bigquery",
+    "snowflake",
+    "schema-change",
+    "volume-anomaly"
+  ],
   "license": "MIT",
+  "homepage": "https://freshguard-dev.github.io/freshguard-core",
+  "bugs": {
+    "url": "https://github.com/freshguard-dev/freshguard-core/issues"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/freshguard-dev/freshguard-core.git"

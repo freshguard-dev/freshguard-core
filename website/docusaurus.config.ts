@@ -14,7 +14,12 @@ const config: Config = {
   projectName: 'freshguard-core',
 
   onBrokenLinks: 'throw',
-  onBrokenMarkdownLinks: 'warn',
+
+  markdown: {
+    hooks: {
+      onBrokenMarkdownLinks: 'warn',
+    },
+  },
 
   i18n: {
     defaultLocale: 'en',
@@ -27,10 +32,10 @@ const config: Config = {
       {
         entryPoints: ['../src/index.ts'],
         tsconfig: '../tsconfig.json',
-        out: 'api',
+        out: 'docs/api',
         sidebar: {
-          categoryLabel: 'API Reference',
-          position: 4,
+          autoConfiguration: true,
+          pretty: true,
         },
         readme: 'none',
         indexFormat: 'table',

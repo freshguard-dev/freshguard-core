@@ -1,0 +1,61 @@
+import type {SidebarsConfig} from '@docusaurus/plugin-content-docs';
+
+const sidebars: SidebarsConfig = {
+  docsSidebar: [
+    'intro',
+    {
+      type: 'category',
+      label: 'Getting Started',
+      items: [
+        'getting-started/installation',
+        'getting-started/quick-start',
+        'getting-started/configuration',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Guides',
+      items: [
+        'guides/freshness-monitoring',
+        'guides/volume-anomaly',
+        'guides/schema-changes',
+        'guides/connectors',
+        'guides/metadata-storage',
+        'guides/error-handling',
+        'guides/cli',
+        'guides/self-hosting',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Security',
+      items: [
+        'security/overview',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Examples',
+      items: [
+        'examples/basic-freshness',
+        'examples/volume-monitoring',
+        'examples/schema-monitoring',
+        'examples/multi-database',
+        'examples/custom-alerting',
+        'examples/docker-deployment',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Contributing',
+      items: [
+        'contributing/development-setup',
+        'contributing/adding-connectors',
+        'contributing/adding-monitors',
+        'contributing/testing',
+      ],
+    },
+  ],
+};
+
+export default sidebars;

@@ -26,13 +26,31 @@ import { DebugErrorFactory, mergeDebugConfig } from '../errors/debug-factory.js'
 import type { QueryContext } from '../errors/debug-factory.js';
 
 /**
- * Check data freshness for a given rule with security validation
+ * Check data freshness for a given rule with security validation.
+ *
+ * Queries `MAX(timestampColumn)` from the target table and compares the lag
+ * against `rule.toleranceMinutes`. Returns `'alert'` if the data is stale.
  *
  * @param connector - Database connector instance
- * @param rule - Monitoring rule configuration
- * @param metadataStorage - Optional metadata storage for execution history
- * @param config - Optional configuration including debug settings
- * @returns CheckResult with freshness status and sanitized error messages
+ * @param rule - Monitoring rule with `ruleType: 'freshness'`, `toleranceMinutes`, and `timestampColumn`
+ * @param metadataStorage - Optional metadata storage for execution history tracking
+ * @param config - Optional configuration including debug settings and timeouts
+ * @returns CheckResult with `status`, `lagMinutes`, and optionally `debug` info
+ * @throws {ConfigurationError} If the rule is missing required freshness fields
+ * @throws {QueryError} If the timestamp query fails
+ * @throws {TimeoutError} If the query exceeds the configured timeout
+ *
+ * @example
+ * ```typescript
+ * import { checkFreshness, PostgresConnector } from '@freshguard/freshguard-core';
+ *
+ * const connector = new PostgresConnector({ host: 'localhost', database: 'mydb', username: 'user', password: 'pass', ssl: true });
+ * const rule = { id: 'r1', sourceId: 's1', name: 'Orders', tableName: 'orders', ruleType: 'freshness' as const, toleranceMinutes: 60, timestampColumn: 'updated_at', checkIntervalMinutes: 5, isActive: true, createdAt: new Date(), updatedAt: new Date() };
+ * const result = await checkFreshness(connector, rule);
+ * console.log(result.status, result.lagMinutes);
+ * ```
+ *
+ * @since 0.1.0
  */
 export async function checkFreshness(
   connector: Connector,

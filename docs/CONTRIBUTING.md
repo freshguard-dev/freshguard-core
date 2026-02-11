@@ -64,6 +64,9 @@ freshguard-core/
 │   │   ├── snowflake.ts     # Snowflake connector
 │   │   ├── mysql.ts         # MySQL connector
 │   │   ├── redshift.ts      # Redshift connector
+│   │   ├── mssql.ts         # SQL Server connector
+│   │   ├── azure-sql.ts     # Azure SQL Database connector
+│   │   ├── synapse.ts       # Azure Synapse Analytics connector
 │   │   └── index.ts         # Exports
 │   ├── monitor/             # Core algorithms
 │   │   ├── freshness.ts     # Freshness checking

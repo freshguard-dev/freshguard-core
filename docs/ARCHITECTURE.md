@@ -31,7 +31,10 @@ FreshGuard Core is a layered monitoring engine. Data flows from user configurati
 │  ├── BigQueryConnector                           │
 │  ├── SnowflakeConnector                          │
 │  ├── MySQLConnector                              │
-│  └── RedshiftConnector                           │
+│  ├── RedshiftConnector                           │
+│  ├── MSSQLConnector                              │
+│  ├── AzureSQLConnector                           │
+│  └── SynapseConnector                            │
 │                                                  │
 │  Built-in: query validation, timeout protection, │
 │  error sanitization, structured logging          │
@@ -241,6 +244,7 @@ checkSchemaChanges(connector, rule, metadataStorage)
 | `@google-cloud/bigquery` | BigQuery connectivity |
 | `snowflake-sdk` | Snowflake connectivity |
 | `mysql2` | MySQL/MariaDB connectivity |
+| `mssql` | SQL Server, Azure SQL, and Azure Synapse connectivity |
 | `drizzle-orm` | Type-safe database schema and migrations |
 | `zod` | Runtime validation of configuration and inputs |
 | `pino` | Structured JSON logging |

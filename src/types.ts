@@ -11,7 +11,7 @@
 // Core Data Structures
 // ==============================================
 
-export type DataSourceType = 'postgres' | 'duckdb' | 'bigquery' | 'snowflake';
+export type DataSourceType = 'postgres' | 'duckdb' | 'bigquery' | 'snowflake' | 'mysql' | 'redshift' | 'mssql' | 'azure_sql' | 'synapse';
 export type RuleType = 'freshness' | 'volume_anomaly' | 'schema_change' | 'custom_sql';
 export type CheckStatus = 'ok' | 'alert' | 'failed' | 'pending';
 export type AlertDestinationType = 'slack' | 'email' | 'pagerduty' | 'webhook';

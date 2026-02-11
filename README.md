@@ -6,7 +6,7 @@
 [![npm version](https://img.shields.io/npm/v/@freshguard/freshguard-core.svg)](https://www.npmjs.com/package/@freshguard/freshguard-core)
 [![Docs](https://img.shields.io/badge/docs-website-blue)](https://freshguard-dev.github.io/freshguard-core)
 
-Monitor when your data pipelines go stale. Supports PostgreSQL, DuckDB, BigQuery, Snowflake, MySQL, and Redshift. Self-hosted. Free forever.
+Monitor when your data pipelines go stale. Supports PostgreSQL, DuckDB, BigQuery, Snowflake, MySQL, Redshift, SQL Server, Azure SQL, and Azure Synapse. Self-hosted. Free forever.
 
 ## Install
 
@@ -75,6 +75,9 @@ if (result.status === 'alert') {
 | Snowflake | `SnowflakeConnector` | 0.2.0 |
 | MySQL | `MySQLConnector` | 0.11.0 |
 | Redshift | `RedshiftConnector` | 0.11.0 |
+| SQL Server | `MSSQLConnector` | 0.14.0 |
+| Azure SQL Database | `AzureSQLConnector` | 0.14.0 |
+| Azure Synapse Analytics | `SynapseConnector` | 0.14.0 |
 
 ## CLI
 

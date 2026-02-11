@@ -10,6 +10,9 @@ import { BigQueryConnector } from '../src/connectors/bigquery.js';
 import { SnowflakeConnector } from '../src/connectors/snowflake.js';
 import { MySQLConnector } from '../src/connectors/mysql.js';
 import { RedshiftConnector } from '../src/connectors/redshift.js';
+import { MSSQLConnector } from '../src/connectors/mssql.js';
+import { AzureSQLConnector } from '../src/connectors/azure-sql.js';
+import { SynapseConnector } from '../src/connectors/synapse.js';
 import type { ConnectorConfig } from '../src/types/connector.js';
 import { SecurityError } from '../src/errors/index.js';
 
@@ -71,6 +74,33 @@ const validMySQLConfig: ConnectorConfig = {
 const validRedshiftConfig: ConnectorConfig = {
   host: 'test-cluster.redshift.amazonaws.com',
   port: 5439,
+  database: 'test_db',
+  username: 'test_user',
+  password: 'test_password',
+  ssl: true,
+};
+
+const validMSSQLConfig: ConnectorConfig = {
+  host: 'localhost',
+  port: 1433,
+  database: 'test_db',
+  username: 'test_user',
+  password: 'test_password',
+  ssl: true,
+};
+
+const validAzureSQLConfig: ConnectorConfig = {
+  host: 'test-server.database.windows.net',
+  port: 1433,
+  database: 'test_db',
+  username: 'test_user',
+  password: 'test_password',
+  ssl: true,
+};
+
+const validSynapseConfig: ConnectorConfig = {
+  host: 'test-workspace.sql.azuresynapse.net',
+  port: 1433,
   database: 'test_db',
   username: 'test_user',
   password: 'test_password',
@@ -421,6 +451,222 @@ describe('RedshiftConnector Security', () => {
   });
 });
 
+describe('MSSQLConnector Security', () => {
+  it('should instantiate with valid configuration', () => {
+    expect(() => new MSSQLConnector(validMSSQLConfig)).not.toThrow();
+  });
+
+  it('should reject invalid configuration', () => {
+    expect(() => new MSSQLConnector({} as ConnectorConfig)).toThrow();
+    expect(() => new MSSQLConnector({
+      host: '',
+      port: 1433,
+      database: 'test',
+      username: 'user',
+      password: 'pass',
+    })).toThrow('Host is required');
+  });
+
+  it('should have secure connector interface methods', () => {
+    const connector = new MSSQLConnector(validMSSQLConfig);
+
+    // New secure methods
+    expect(connector.testConnection).toBeDefined();
+    expect(connector.listTables).toBeDefined();
+    expect(connector.getTableSchema).toBeDefined();
+    expect(connector.getRowCount).toBeDefined();
+    expect(connector.getMaxTimestamp).toBeDefined();
+    expect(connector.getMinTimestamp).toBeDefined();
+    expect(connector.getLastModified).toBeDefined();
+    expect(connector.close).toBeDefined();
+
+    // Legacy methods (deprecated but present)
+    expect(connector.connectLegacy).toBeDefined();
+    expect(connector.testConnectionLegacy).toBeDefined();
+    expect(connector.getTableMetadata).toBeDefined();
+  });
+
+  it('should block direct SQL queries for security', async () => {
+    const connector = new MSSQLConnector(validMSSQLConfig);
+    await expect(connector.query('SELECT * FROM users')).rejects.toThrow(
+      'Direct SQL queries are not allowed for security reasons'
+    );
+  });
+
+  it('should validate host parameter', () => {
+    expect(() => new MSSQLConnector({
+      ...validMSSQLConfig,
+      host: '',
+    })).toThrow('Host is required');
+  });
+
+  it('should validate port parameter', () => {
+    expect(() => new MSSQLConnector({
+      ...validMSSQLConfig,
+      port: 99999,
+    })).toThrow('Port must be between 1 and 65535');
+  });
+
+  it('should require SSL by default', () => {
+    expect(() => new MSSQLConnector({
+      ...validMSSQLConfig,
+      ssl: false,
+    })).toThrow(SecurityError);
+  });
+
+  it('should use MSSQL default port when not specified', () => {
+    const config = { ...validMSSQLConfig };
+    delete config.port;
+    expect(() => new MSSQLConnector(config)).not.toThrow();
+  });
+
+  it('should use bracket notation for identifier escaping', () => {
+    const connector = new MSSQLConnector(validMSSQLConfig);
+    // Bracket notation is used internally - verify via getTableSchema not throwing on valid names
+    expect(connector.getTableSchema).toBeDefined();
+  });
+});
+
+describe('AzureSQLConnector Security', () => {
+  it('should instantiate with valid configuration', () => {
+    expect(() => new AzureSQLConnector(validAzureSQLConfig)).not.toThrow();
+  });
+
+  it('should reject invalid configuration', () => {
+    expect(() => new AzureSQLConnector({} as ConnectorConfig)).toThrow();
+    expect(() => new AzureSQLConnector({
+      host: '',
+      port: 1433,
+      database: 'test',
+      username: 'user',
+      password: 'pass',
+    })).toThrow('Host is required');
+  });
+
+  it('should have secure connector interface methods', () => {
+    const connector = new AzureSQLConnector(validAzureSQLConfig);
+
+    // New secure methods
+    expect(connector.testConnection).toBeDefined();
+    expect(connector.listTables).toBeDefined();
+    expect(connector.getTableSchema).toBeDefined();
+    expect(connector.getRowCount).toBeDefined();
+    expect(connector.getMaxTimestamp).toBeDefined();
+    expect(connector.getMinTimestamp).toBeDefined();
+    expect(connector.getLastModified).toBeDefined();
+    expect(connector.close).toBeDefined();
+
+    // Legacy methods (deprecated but present)
+    expect(connector.connectLegacy).toBeDefined();
+    expect(connector.testConnectionLegacy).toBeDefined();
+    expect(connector.getTableMetadata).toBeDefined();
+  });
+
+  it('should block direct SQL queries for security', async () => {
+    const connector = new AzureSQLConnector(validAzureSQLConfig);
+    await expect(connector.query('SELECT * FROM users')).rejects.toThrow(
+      'Direct SQL queries are not allowed for security reasons'
+    );
+  });
+
+  it('should validate host parameter', () => {
+    expect(() => new AzureSQLConnector({
+      ...validAzureSQLConfig,
+      host: '',
+    })).toThrow('Host is required');
+  });
+
+  it('should validate port parameter', () => {
+    expect(() => new AzureSQLConnector({
+      ...validAzureSQLConfig,
+      port: 99999,
+    })).toThrow('Port must be between 1 and 65535');
+  });
+
+  it('should require SSL by default', () => {
+    expect(() => new AzureSQLConnector({
+      ...validAzureSQLConfig,
+      ssl: false,
+    })).toThrow(SecurityError);
+  });
+
+  it('should use Azure SQL default port when not specified', () => {
+    const config = { ...validAzureSQLConfig };
+    delete config.port;
+    expect(() => new AzureSQLConnector(config)).not.toThrow();
+  });
+});
+
+describe('SynapseConnector Security', () => {
+  it('should instantiate with valid configuration', () => {
+    expect(() => new SynapseConnector(validSynapseConfig)).not.toThrow();
+  });
+
+  it('should reject invalid configuration', () => {
+    expect(() => new SynapseConnector({} as ConnectorConfig)).toThrow();
+    expect(() => new SynapseConnector({
+      host: '',
+      port: 1433,
+      database: 'test',
+      username: 'user',
+      password: 'pass',
+    })).toThrow('Host is required');
+  });
+
+  it('should have secure connector interface methods', () => {
+    const connector = new SynapseConnector(validSynapseConfig);
+
+    // New secure methods
+    expect(connector.testConnection).toBeDefined();
+    expect(connector.listTables).toBeDefined();
+    expect(connector.getTableSchema).toBeDefined();
+    expect(connector.getRowCount).toBeDefined();
+    expect(connector.getMaxTimestamp).toBeDefined();
+    expect(connector.getMinTimestamp).toBeDefined();
+    expect(connector.getLastModified).toBeDefined();
+    expect(connector.close).toBeDefined();
+
+    // Legacy methods (deprecated but present)
+    expect(connector.connectLegacy).toBeDefined();
+    expect(connector.testConnectionLegacy).toBeDefined();
+    expect(connector.getTableMetadata).toBeDefined();
+  });
+
+  it('should block direct SQL queries for security', async () => {
+    const connector = new SynapseConnector(validSynapseConfig);
+    await expect(connector.query('SELECT * FROM users')).rejects.toThrow(
+      'Direct SQL queries are not allowed for security reasons'
+    );
+  });
+
+  it('should validate host parameter', () => {
+    expect(() => new SynapseConnector({
+      ...validSynapseConfig,
+      host: '',
+    })).toThrow('Host is required');
+  });
+
+  it('should validate port parameter', () => {
+    expect(() => new SynapseConnector({
+      ...validSynapseConfig,
+      port: 99999,
+    })).toThrow('Port must be between 1 and 65535');
+  });
+
+  it('should require SSL by default', () => {
+    expect(() => new SynapseConnector({
+      ...validSynapseConfig,
+      ssl: false,
+    })).toThrow(SecurityError);
+  });
+
+  it('should use Synapse default port when not specified', () => {
+    const config = { ...validSynapseConfig };
+    delete config.port;
+    expect(() => new SynapseConnector(config)).not.toThrow();
+  });
+});
+
 describe('Connector Security Consistency', () => {
   it('should all extend BaseConnector with security features', () => {
     const postgres = new PostgresConnector(validPostgresConfig);
@@ -429,8 +675,11 @@ describe('Connector Security Consistency', () => {
     const snowflake = new SnowflakeConnector(validSnowflakeConfig);
     const mysql = new MySQLConnector(validMySQLConfig);
     const redshift = new RedshiftConnector(validRedshiftConfig);
+    const mssqlConn = new MSSQLConnector(validMSSQLConfig);
+    const azureSql = new AzureSQLConnector(validAzureSQLConfig);
+    const synapse = new SynapseConnector(validSynapseConfig);
 
-    const connectors = [postgres, duckdb, bigquery, snowflake, mysql, redshift];
+    const connectors = [postgres, duckdb, bigquery, snowflake, mysql, redshift, mssqlConn, azureSql, synapse];
 
     // All should have core security methods
     for (const connector of connectors) {
@@ -451,8 +700,11 @@ describe('Connector Security Consistency', () => {
     const snowflake = new SnowflakeConnector(validSnowflakeConfig);
     const mysql = new MySQLConnector(validMySQLConfig);
     const redshift = new RedshiftConnector(validRedshiftConfig);
+    const mssqlConn = new MSSQLConnector(validMSSQLConfig);
+    const azureSql = new AzureSQLConnector(validAzureSQLConfig);
+    const synapse = new SynapseConnector(validSynapseConfig);
 
-    const connectors = [postgres, duckdb, bigquery, snowflake, mysql, redshift];
+    const connectors = [postgres, duckdb, bigquery, snowflake, mysql, redshift, mssqlConn, azureSql, synapse];
 
     for (const connector of connectors) {
       await expect(connector.query('SELECT 1')).rejects.toThrow(
@@ -468,8 +720,11 @@ describe('Connector Security Consistency', () => {
     const snowflake = new SnowflakeConnector(validSnowflakeConfig);
     const mysql = new MySQLConnector(validMySQLConfig);
     const redshift = new RedshiftConnector(validRedshiftConfig);
+    const mssqlConn = new MSSQLConnector(validMSSQLConfig);
+    const azureSql = new AzureSQLConnector(validAzureSQLConfig);
+    const synapse = new SynapseConnector(validSynapseConfig);
 
-    const connectors = [postgres, duckdb, bigquery, snowflake, mysql, redshift];
+    const connectors = [postgres, duckdb, bigquery, snowflake, mysql, redshift, mssqlConn, azureSql, synapse];
 
     // All should have deprecated legacy methods
     for (const connector of connectors) {

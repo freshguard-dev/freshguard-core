@@ -1,0 +1,21 @@
+# Function: createDatabase()
+
+> **createDatabase**(`connectionString`): `PostgresJsDatabase`\<`Record`\<`string`, `unknown`\>\> & `object`
+
+Defined in: [src/db/index.ts:17](https://github.com/freshguard-dev/freshguard-core/blob/49fe45ba5f2e729bb2b3a01a6a09fc4a61156cec/src/db/index.ts#L17)
+
+Create a database connection
+
+## Parameters
+
+### connectionString
+
+`string`
+
+PostgreSQL connection string
+
+## Returns
+
+`PostgresJsDatabase`\<`Record`\<`string`, `unknown`\>\> & `object`
+
+Drizzle database instance

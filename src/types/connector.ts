@@ -180,6 +180,11 @@ export const DEFAULT_SECURITY_CONFIG: SecurityConfig = {
     /^SELECT\s+tablename\s+FROM\s+pg_tables/is,                                          // Redshift table listing using pg_tables
     /^SELECT\s+[\s\S]*?FROM\s+svv_table_info/is,                                         // Redshift system view queries
 
+    // MSSQL/Azure SQL/Synapse patterns
+    /^SELECT\s+.+?\s+FROM\s+INFORMATION_SCHEMA\.\w+/is,                                   // MSSQL INFORMATION_SCHEMA (uppercase)
+    /^SELECT\s+.+?\s+FROM\s+sys\.\w+/is,                                                   // MSSQL system views
+    /^SELECT\s+.+?\s+FROM\s+sys\.dm_\w+/is,                                                // MSSQL dynamic management views
+
     // Test connection queries
     /^SELECT\s+1(?:\s+as\s+\w+)?$/i,                                                     // SELECT 1 [as alias] (connection test)
   ],
@@ -197,7 +202,7 @@ export const DEFAULT_SECURITY_CONFIG: SecurityConfig = {
 /**
  * Database connector types supported by FreshGuard Core
  */
-export type ConnectorType = 'postgres' | 'duckdb' | 'bigquery' | 'snowflake' | 'mysql' | 'redshift';
+export type ConnectorType = 'postgres' | 'duckdb' | 'bigquery' | 'snowflake' | 'mysql' | 'redshift' | 'mssql' | 'azure_sql' | 'synapse';
 
 /**
  * Connector factory configuration

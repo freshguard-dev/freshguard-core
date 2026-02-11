@@ -2,7 +2,8 @@
  * FreshGuard Core - Open Source Data Pipeline Freshness Monitoring
  *
  * Monitor data pipeline freshness, volume anomalies, and schema changes across
- * PostgreSQL, DuckDB, BigQuery, Snowflake, MySQL, and Redshift.
+ * PostgreSQL, DuckDB, BigQuery, Snowflake, MySQL, Redshift, SQL Server, Azure SQL,
+ * and Azure Synapse.
  *
  * @example
  * ```typescript
@@ -33,7 +34,7 @@
 export { checkFreshness, checkVolumeAnomaly, checkSchemaChanges } from './monitor/index.js';
 
 // Database connectors
-export { PostgresConnector, DuckDBConnector, BigQueryConnector, SnowflakeConnector, MySQLConnector, RedshiftConnector } from './connectors/index.js';
+export { PostgresConnector, DuckDBConnector, BigQueryConnector, SnowflakeConnector, MySQLConnector, RedshiftConnector, MSSQLConnector, AzureSQLConnector, SynapseConnector } from './connectors/index.js';
 
 // Database utilities
 export { createDatabase, schema } from './db/index.js';

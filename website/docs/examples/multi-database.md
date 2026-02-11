@@ -12,6 +12,7 @@ import {
   PostgresConnector,
   BigQueryConnector,
   SnowflakeConnector,
+  MSSQLConnector,
 } from '@freshguard/freshguard-core';
 import type { MonitoringRule } from '@freshguard/freshguard-core';
 
@@ -35,6 +36,14 @@ const connectors = {
     database: 'ANALYTICS',
     username: process.env.SNOWFLAKE_USER!,
     password: process.env.SNOWFLAKE_PASSWORD!,
+    ssl: true,
+  }),
+  sqlserver: new MSSQLConnector({
+    host: process.env.MSSQL_HOST!,
+    port: Number(process.env.MSSQL_PORT) || 1433,
+    database: process.env.MSSQL_DB!,
+    username: process.env.MSSQL_USER!,
+    password: process.env.MSSQL_PASSWORD!,
     ssl: true,
   }),
 };
@@ -84,6 +93,22 @@ const rules: Array<{ connector: keyof typeof connectors; rule: MonitoringRule }>
       toleranceMinutes: 90,
       timestampColumn: 'CREATED_AT',
       checkIntervalMinutes: 10,
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+  },
+  {
+    connector: 'sqlserver',
+    rule: {
+      id: 'mssql-inventory',
+      sourceId: 'sqlserver',
+      name: 'SQL Server Inventory',
+      tableName: 'inventory',
+      ruleType: 'freshness',
+      toleranceMinutes: 30,
+      timestampColumn: 'updated_at',
+      checkIntervalMinutes: 5,
       isActive: true,
       createdAt: new Date(),
       updatedAt: new Date(),

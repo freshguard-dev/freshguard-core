@@ -4,7 +4,7 @@ sidebar_position: 4
 
 # Database Connectors
 
-FreshGuard Core supports six databases. All connectors extend `BaseConnector`, which provides built-in query validation, timeout protection, error sanitization, and structured logging.
+FreshGuard Core supports nine databases. All connectors extend `BaseConnector`, which provides built-in query validation, timeout protection, error sanitization, and structured logging.
 
 ## PostgreSQL
 
@@ -106,6 +106,55 @@ const connector = new RedshiftConnector({
   ssl: true,
 });
 ```
+
+## SQL Server
+
+```typescript
+import { MSSQLConnector } from '@freshguard/freshguard-core';
+
+const connector = new MSSQLConnector({
+  host: process.env.MSSQL_HOST!,
+  port: Number(process.env.MSSQL_PORT) || 1433,
+  database: process.env.MSSQL_DB!,
+  username: process.env.MSSQL_USER!,
+  password: process.env.MSSQL_PASSWORD!,
+  ssl: true,
+});
+```
+
+## Azure SQL Database
+
+Azure SQL always enforces SSL encryption:
+
+```typescript
+import { AzureSQLConnector } from '@freshguard/freshguard-core';
+
+const connector = new AzureSQLConnector({
+  host: 'your-server.database.windows.net',
+  port: 1433,
+  database: process.env.AZURE_SQL_DB!,
+  username: process.env.AZURE_SQL_USER!,
+  password: process.env.AZURE_SQL_PASSWORD!,
+  ssl: true,
+});
+```
+
+## Azure Synapse Analytics
+
+```typescript
+import { SynapseConnector } from '@freshguard/freshguard-core';
+
+const connector = new SynapseConnector({
+  host: 'your-workspace.sql.azuresynapse.net',
+  port: 1433,
+  database: process.env.SYNAPSE_DB!,
+  username: process.env.SYNAPSE_USER!,
+  password: process.env.SYNAPSE_PASSWORD!,
+  ssl: true,
+});
+```
+
+Ensure the dedicated SQL pool is running before connecting — paused pools will cause connection timeouts.
 
 ## Connector interface
 

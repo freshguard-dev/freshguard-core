@@ -36,7 +36,7 @@ The package exports:
 | Category | Exports |
 |---|---|
 | **Monitoring** | `checkFreshness`, `checkVolumeAnomaly`, `checkSchemaChanges` |
-| **Connectors** | `PostgresConnector`, `DuckDBConnector`, `BigQueryConnector`, `SnowflakeConnector`, `MySQLConnector`, `RedshiftConnector` |
+| **Connectors** | `PostgresConnector`, `DuckDBConnector`, `BigQueryConnector`, `SnowflakeConnector`, `MySQLConnector`, `RedshiftConnector`, `MSSQLConnector`, `AzureSQLConnector`, `SynapseConnector` |
 | **Metadata** | `createMetadataStorage`, `DuckDBMetadataStorage`, `PostgreSQLMetadataStorage` |
 | **Errors** | `SecurityError`, `ConnectionError`, `TimeoutError`, `QueryError`, `ConfigurationError`, `MonitoringError` |
 | **Types** | `MonitoringRule`, `CheckResult`, `DataSource`, `FreshGuardConfig`, and more |

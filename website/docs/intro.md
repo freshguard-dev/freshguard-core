@@ -5,7 +5,7 @@ slug: /
 
 # Introduction
 
-FreshGuard Core is an open-source, MIT-licensed data pipeline freshness monitoring engine. It detects stale data, volume anomalies, and schema changes across PostgreSQL, DuckDB, BigQuery, Snowflake, MySQL, and Redshift.
+FreshGuard Core is an open-source, MIT-licensed data pipeline freshness monitoring engine. It detects stale data, volume anomalies, and schema changes across PostgreSQL, DuckDB, BigQuery, Snowflake, MySQL, Redshift, SQL Server, Azure SQL, and Azure Synapse.
 
 ## What it does
 
@@ -28,7 +28,7 @@ Monitoring Algorithms
   checkFreshness · checkVolumeAnomaly · checkSchemaChanges
         |
 Database Connectors
-  PostgreSQL · DuckDB · BigQuery · Snowflake · MySQL · Redshift
+  PostgreSQL · DuckDB · BigQuery · Snowflake · MySQL · Redshift · SQL Server · Azure SQL · Azure Synapse
         |
 Metadata Storage (optional)
   DuckDB (embedded) or PostgreSQL

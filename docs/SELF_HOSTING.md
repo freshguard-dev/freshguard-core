@@ -6,7 +6,7 @@ Guide for self-hosting FreshGuard Core in your own environment.
 
 ✅ **Basic Security** - Input validation, SQL injection protection, secure connections
 ✅ **Core Monitoring** - Freshness, volume anomaly detection, and schema change monitoring
-✅ **Multi-Database Support** - PostgreSQL, BigQuery, Snowflake, DuckDB, MySQL, Redshift
+✅ **Multi-Database Support** - PostgreSQL, BigQuery, Snowflake, DuckDB, MySQL, Redshift, SQL Server, Azure SQL, Azure Synapse
 ✅ **Structured Logging** - JSON logging with error sanitization
 ✅ **Custom Integration** - Build your own alerting with the API
 ✅ **Full Control** - Your data stays on your infrastructure

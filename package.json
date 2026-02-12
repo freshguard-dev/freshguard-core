@@ -22,8 +22,10 @@
     "dist",
     "LICENSE",
     "README.md",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "SKILL.md"
   ],
+  "agentskills": "./SKILL.md",
   "scripts": {
     "build": "tsc",
     "type-check": "tsc --noEmit",

@@ -22,6 +22,9 @@ import { validateConnectorConfig } from '../validators/index.js';
 /**
  * Secure Azure Synapse Analytics connector
  *
+ * SSL is always enforced (Azure requirement). Includes Synapse-specific DMV
+ * support for `dm_pdw_exec_requests`.
+ *
  * Features:
  * - SQL injection prevention
  * - Connection timeouts
@@ -29,11 +32,27 @@ import { validateConnectorConfig } from '../validators/index.js';
  * - Read-only query patterns
  * - Secure error handling
  * - Synapse-specific DMV support (dm_pdw_exec_requests)
+ *
+ * @example
+ * ```typescript
+ * import { SynapseConnector } from '@freshguard/freshguard-core';
+ *
+ * const connector = new SynapseConnector({
+ *   host: 'myworkspace.sql.azuresynapse.net', port: 1433,
+ *   database: 'analytics_pool',
+ *   username: 'readonly',
+ *   password: process.env.SYNAPSE_PASSWORD!,
+ * });
+ * ```
  */
 export class SynapseConnector extends BaseConnector {
   private pool: mssql.ConnectionPool | null = null;
   private connected = false;
 
+  /**
+   * @param config - Database connection settings (host, port, database, credentials)
+   * @param securityConfig - Optional overrides for query timeouts, max rows, and blocked keywords
+   */
   constructor(config: ConnectorConfig, securityConfig?: Partial<SecurityConfig>) {
     // Validate configuration before proceeding
     validateConnectorConfig(config);

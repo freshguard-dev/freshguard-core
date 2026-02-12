@@ -23,12 +23,27 @@ import { validateDatabaseIdentifier } from '../validators/index.js';
 /**
  * Secure BigQuery connector
  *
+ * Connects to Google BigQuery using Application Default Credentials or a
+ * service-account key. The `database` field in the config is the GCP project ID.
+ *
  * Features:
  * - SQL injection prevention
  * - Credential validation
  * - Read-only query patterns
  * - Connection timeouts
  * - Secure error handling
+ *
+ * @example
+ * ```typescript
+ * import { BigQueryConnector } from '@freshguard/freshguard-core';
+ *
+ * const connector = new BigQueryConnector({
+ *   host: 'bigquery.googleapis.com', port: 443,
+ *   database: 'my-gcp-project',
+ *   username: 'service-account@project.iam.gserviceaccount.com',
+ *   password: process.env.BQ_KEY!,
+ * });
+ * ```
  */
 export class BigQueryConnector extends BaseConnector {
   private client: BigQuery | null = null;
@@ -36,6 +51,10 @@ export class BigQueryConnector extends BaseConnector {
   private location = 'US';
   private connected = false;
 
+  /**
+   * @param config - Connection config; `database` is the GCP project ID
+   * @param securityConfig - Optional overrides for query timeouts, max rows, and blocked keywords
+   */
   constructor(config: ConnectorConfig, securityConfig?: Partial<SecurityConfig>) {
     // Validate BigQuery-specific configuration
     BigQueryConnector.validateBigQueryConfig(config);

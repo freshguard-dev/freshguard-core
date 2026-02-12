@@ -8,6 +8,8 @@
 
 Monitor when your data pipelines go stale. Supports PostgreSQL, DuckDB, BigQuery, Snowflake, MySQL, Redshift, SQL Server, Azure SQL, and Azure Synapse. Self-hosted. Free forever.
 
+**When to use this:** You run data pipelines (ETL/ELT) that land data into a warehouse or database and you need to know — programmatically — when a table stops updating, row counts look wrong, or the schema drifts. Install this package in a Node.js script, a cron job, or a long-running process and it will check your tables and tell you what's stale. No dashboard, no vendor lock-in, no account required.
+
 ## Install
 
 ```bash
@@ -52,6 +54,63 @@ if (result.status === 'alert') {
 - **Volume anomaly detection** — Alert when row counts deviate from a calculated baseline
 - **Schema change detection** — Alert when columns are added, removed, or modified
 
+## API at a glance
+
+### Monitoring functions
+
+| Export | Description |
+|---|---|
+| `checkFreshness(connector, rule)` | Returns `'alert'` when `MAX(timestampColumn)` exceeds `toleranceMinutes` |
+| `checkVolumeAnomaly(connector, rule)` | Returns `'alert'` when current row count deviates from the historical baseline |
+| `checkSchemaChanges(connector, rule)` | Returns `'alert'` when columns are added, removed, or modified |
+
+### Connectors
+
+| Export | Database |
+|---|---|
+| `PostgresConnector` | PostgreSQL |
+| `DuckDBConnector` | DuckDB (local file / `:memory:`) |
+| `BigQueryConnector` | Google BigQuery |
+| `SnowflakeConnector` | Snowflake |
+| `MySQLConnector` | MySQL |
+| `RedshiftConnector` | Amazon Redshift |
+| `MSSQLConnector` | SQL Server |
+| `AzureSQLConnector` | Azure SQL Database |
+| `SynapseConnector` | Azure Synapse Analytics |
+
+All connectors accept a `ConnectorConfig` (host, port, database, username, password, ssl) and an optional `SecurityConfig` override.
+
+### Metadata storage
+
+| Export | Description |
+|---|---|
+| `createMetadataStorage(config?)` | Factory — returns DuckDB (default) or PostgreSQL metadata store |
+| `DuckDBMetadataStorage` | Embedded DuckDB storage (zero-setup) |
+| `PostgreSQLMetadataStorage` | PostgreSQL-backed shared storage |
+
+### Database utilities
+
+| Export | Description |
+|---|---|
+| `createDatabase(connectionString)` | Create a Drizzle ORM connection to the FreshGuard PostgreSQL schema |
+| `schema` | Drizzle table definitions |
+
+### Error classes
+
+| Export | Thrown when |
+|---|---|
+| `FreshGuardError` | Base class for all FreshGuard errors |
+| `SecurityError` | SQL injection attempt or blocked query |
+| `ConnectionError` | Database connection failure |
+| `TimeoutError` | Query or connection timeout exceeded |
+| `QueryError` | Query execution failure |
+| `ConfigurationError` | Invalid configuration |
+| `MonitoringError` | Monitoring logic failure |
+
+### Key types
+
+`MonitoringRule`, `CheckResult`, `DataSource`, `SourceCredentials`, `ConnectorConfig`, `CheckStatus`, `RuleType`, `DataSourceType`, `SchemaChanges`, `ColumnChange`, `FreshGuardConfig`
+
 ## Documentation
 
 **[Read the full docs](https://freshguard-dev.github.io/freshguard-core)** — guides, API reference, examples, and self-hosting instructions.
@@ -87,6 +146,17 @@ pnpm exec freshguard init
 pnpm exec freshguard test
 pnpm exec freshguard run
 ```
+
+## Compatibility
+
+| Requirement | Version |
+|---|---|
+| Node.js | >=20.0.0 |
+| TypeScript | >=5.3 (ships `.d.ts` + declaration maps) |
+| Module system | ESM only (`"type": "module"`) |
+| Package manager | pnpm >=10 (npm/yarn work for consumers) |
+
+This package follows **semver**. Breaking changes only land in major version bumps. The current version is **0.x** (pre-1.0), so minor versions may contain breaking changes — check [CHANGELOG.md](CHANGELOG.md) before upgrading.
 
 ## Architecture
 

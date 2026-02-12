@@ -28,11 +28,28 @@ import { validateConnectorConfig } from '../validators/index.js';
  * - Read-only query patterns
  * - Secure error handling
  * - Connection pooling via mssql
+ *
+ * @example
+ * ```typescript
+ * import { MSSQLConnector } from '@freshguard/freshguard-core';
+ *
+ * const connector = new MSSQLConnector({
+ *   host: 'sql-server.example.com', port: 1433,
+ *   database: 'analytics',
+ *   username: 'readonly',
+ *   password: process.env.MSSQL_PASSWORD!,
+ *   ssl: true,
+ * });
+ * ```
  */
 export class MSSQLConnector extends BaseConnector {
   private pool: mssql.ConnectionPool | null = null;
   private connected = false;
 
+  /**
+   * @param config - Database connection settings (host, port, database, credentials)
+   * @param securityConfig - Optional overrides for query timeouts, max rows, SSL, and blocked keywords
+   */
   constructor(config: ConnectorConfig, securityConfig?: Partial<SecurityConfig>) {
     // Validate configuration before proceeding
     validateConnectorConfig(config);

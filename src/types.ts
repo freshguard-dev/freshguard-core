@@ -33,6 +33,21 @@ export interface SourceCredentials {
 
 /**
  * Data source configuration
+ *
+ * Represents a registered database that FreshGuard monitors.
+ *
+ * @example
+ * ```typescript
+ * const source: DataSource = {
+ *   id: 'prod_pg',
+ *   name: 'Production PostgreSQL',
+ *   type: 'postgres',
+ *   credentials: { host: 'db.example.com', port: 5432, database: 'app', username: 'reader', password: '***' },
+ *   isActive: true,
+ *   createdAt: new Date(),
+ *   updatedAt: new Date(),
+ * };
+ * ```
  */
 export interface DataSource {
   id: string;
@@ -51,6 +66,26 @@ export interface DataSource {
 
 /**
  * Monitoring rule configuration
+ *
+ * Pass a `MonitoringRule` to `checkFreshness`, `checkVolumeAnomaly`, or
+ * `checkSchemaChanges` to define what to monitor and the alert thresholds.
+ *
+ * @example
+ * ```typescript
+ * const rule: MonitoringRule = {
+ *   id: 'orders-freshness',
+ *   sourceId: 'prod_pg',
+ *   name: 'Orders Freshness',
+ *   tableName: 'orders',
+ *   ruleType: 'freshness',
+ *   toleranceMinutes: 60,
+ *   timestampColumn: 'updated_at',
+ *   checkIntervalMinutes: 5,
+ *   isActive: true,
+ *   createdAt: new Date(),
+ *   updatedAt: new Date(),
+ * };
+ * ```
  */
 export interface MonitoringRule {
   id: string;
@@ -159,6 +194,18 @@ export interface DebugConfig {
 
 /**
  * Check execution result
+ *
+ * Returned by `checkFreshness`, `checkVolumeAnomaly`, and `checkSchemaChanges`.
+ * Inspect `status` to decide whether to alert.
+ *
+ * @example
+ * ```typescript
+ * const result: CheckResult = await checkFreshness(connector, rule);
+ *
+ * if (result.status === 'alert') {
+ *   console.log(`Stale by ${result.lagMinutes} minutes`);
+ * }
+ * ```
  */
 export interface CheckResult {
   status: CheckStatus;

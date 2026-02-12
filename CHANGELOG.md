@@ -7,7 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-02-12
+
 ### Added
+- **SKILL.md agent skills directory** — instruction-style documentation for AI coding agents, wired via `agentskills` field in package.json
+- **Per-export API reference** in README — tables for monitoring functions, connectors, metadata storage, errors, and key types
+- **"When to use this"** paragraph in README for quick orientation
+- **Compatibility section** in README documenting Node, TypeScript, and ESM requirements
+
+### Changed
+- JSDoc comments now preserved in shipped `.d.ts` files (`removeComments: false` in tsconfig)
+- Enhanced JSDoc on all 9 connector constructors with `@param`, `@example` tags
+- Added module-level JSDoc to `connectors/index`, `monitor/index`, `metadata/index`, `db/index`
+- Added `@example` to `MonitoringRule`, `CheckResult`, and `DataSource` type interfaces
+- Improved `createDatabase()` JSDoc with usage example
 - Documentation site with versioned API reference
 
 ## [0.12.0] - 2026-02-10
@@ -148,7 +161,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Drizzle ORM database schema and migrations
 - MIT license
 
-[Unreleased]: https://github.com/freshguard-dev/freshguard-core/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/freshguard-dev/freshguard-core/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/freshguard-dev/freshguard-core/compare/v0.12.0...v0.15.0
 [0.12.0]: https://github.com/freshguard-dev/freshguard-core/compare/v0.11.3...v0.12.0
 [0.11.3]: https://github.com/freshguard-dev/freshguard-core/compare/v0.11.2...v0.11.3
 [0.11.2]: https://github.com/freshguard-dev/freshguard-core/compare/v0.11.1...v0.11.2

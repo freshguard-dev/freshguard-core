@@ -27,11 +27,31 @@ import { validateConnectorConfig } from '../validators/index.js';
  * - SSL enforcement
  * - Read-only query patterns
  * - Secure error handling
+ *
+ * @example
+ * ```typescript
+ * import { PostgresConnector } from '@freshguard/freshguard-core';
+ *
+ * const connector = new PostgresConnector({
+ *   host: 'localhost', port: 5432,
+ *   database: 'analytics',
+ *   username: 'readonly_user',
+ *   password: process.env.DB_PASSWORD!,
+ *   ssl: true,
+ * });
+ *
+ * const ok = await connector.testConnection();
+ * const tables = await connector.listTables();
+ * ```
  */
 export class PostgresConnector extends BaseConnector {
   private client: ReturnType<typeof postgres> | null = null;
   private connected = false;
 
+  /**
+   * @param config - Database connection settings (host, port, database, credentials)
+   * @param securityConfig - Optional overrides for query timeouts, max rows, SSL, and blocked keywords
+   */
   constructor(config: ConnectorConfig, securityConfig?: Partial<SecurityConfig>) {
     // Validate configuration before proceeding
     validateConnectorConfig(config);

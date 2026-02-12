@@ -27,11 +27,28 @@ import { validateConnectorConfig } from '../validators/index.js';
  * - SSL enforcement
  * - Read-only query patterns
  * - Secure error handling
+ *
+ * @example
+ * ```typescript
+ * import { MySQLConnector } from '@freshguard/freshguard-core';
+ *
+ * const connector = new MySQLConnector({
+ *   host: 'mysql.example.com', port: 3306,
+ *   database: 'analytics',
+ *   username: 'readonly',
+ *   password: process.env.MYSQL_PASSWORD!,
+ *   ssl: true,
+ * });
+ * ```
  */
 export class MySQLConnector extends BaseConnector {
   private connection: mysql.Connection | null = null;
   private connected = false;
 
+  /**
+   * @param config - Database connection settings (host, port, database, credentials)
+   * @param securityConfig - Optional overrides for query timeouts, max rows, SSL, and blocked keywords
+   */
   constructor(config: ConnectorConfig, securityConfig?: Partial<SecurityConfig>) {
     // Validate configuration before proceeding
     validateConnectorConfig(config);

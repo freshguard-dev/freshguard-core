@@ -22,6 +22,8 @@ import { validateConnectorConfig } from '../validators/index.js';
 /**
  * Secure Azure SQL Database connector
  *
+ * SSL is always enforced (Azure requirement).
+ *
  * Features:
  * - SQL injection prevention
  * - Connection timeouts
@@ -29,11 +31,27 @@ import { validateConnectorConfig } from '../validators/index.js';
  * - Azure AD token-based authentication support
  * - Read-only query patterns
  * - Secure error handling
+ *
+ * @example
+ * ```typescript
+ * import { AzureSQLConnector } from '@freshguard/freshguard-core';
+ *
+ * const connector = new AzureSQLConnector({
+ *   host: 'myserver.database.windows.net', port: 1433,
+ *   database: 'analytics',
+ *   username: 'readonly',
+ *   password: process.env.AZURE_SQL_PASSWORD!,
+ * });
+ * ```
  */
 export class AzureSQLConnector extends BaseConnector {
   private pool: mssql.ConnectionPool | null = null;
   private connected = false;
 
+  /**
+   * @param config - Database connection settings (host, port, database, credentials)
+   * @param securityConfig - Optional overrides for query timeouts, max rows, and blocked keywords
+   */
   constructor(config: ConnectorConfig, securityConfig?: Partial<SecurityConfig>) {
     // Validate configuration before proceeding
     validateConnectorConfig(config);

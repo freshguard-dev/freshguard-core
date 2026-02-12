@@ -22,6 +22,8 @@ import { validateConnectorConfig } from '../validators/index.js';
 /**
  * Secure Redshift connector
  *
+ * Connects via the PostgreSQL wire protocol.
+ *
  * Features:
  * - SQL injection prevention
  * - Connection timeouts
@@ -29,11 +31,28 @@ import { validateConnectorConfig } from '../validators/index.js';
  * - Read-only query patterns
  * - Secure error handling
  * - PostgreSQL wire protocol compatibility
+ *
+ * @example
+ * ```typescript
+ * import { RedshiftConnector } from '@freshguard/freshguard-core';
+ *
+ * const connector = new RedshiftConnector({
+ *   host: 'my-cluster.abc123.us-east-1.redshift.amazonaws.com', port: 5439,
+ *   database: 'analytics',
+ *   username: 'readonly',
+ *   password: process.env.REDSHIFT_PASSWORD!,
+ *   ssl: true,
+ * });
+ * ```
  */
 export class RedshiftConnector extends BaseConnector {
   private client: ReturnType<typeof postgres> | null = null;
   private connected = false;
 
+  /**
+   * @param config - Database connection settings (host, port, database, credentials)
+   * @param securityConfig - Optional overrides for query timeouts, max rows, SSL, and blocked keywords
+   */
   constructor(config: ConnectorConfig, securityConfig?: Partial<SecurityConfig>) {
     // Validate configuration before proceeding
     validateConnectorConfig(config);

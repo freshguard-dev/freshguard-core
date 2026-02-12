@@ -25,12 +25,27 @@ import { resolve } from 'path';
 /**
  * Secure DuckDB connector
  *
+ * Uses a local DuckDB file (or `:memory:`) for lightweight, embedded analytics.
+ *
  * Features:
  * - SQL injection prevention
  * - File path validation
  * - Read-only query patterns
  * - Connection timeouts
  * - Secure error handling
+ *
+ * @example
+ * ```typescript
+ * import { DuckDBConnector } from '@freshguard/freshguard-core';
+ *
+ * const connector = new DuckDBConnector({
+ *   host: 'local', port: 0,
+ *   database: './warehouse.duckdb',   // or ':memory:'
+ *   username: '', password: '',
+ * });
+ *
+ * const tables = await connector.listTables();
+ * ```
  */
 export class DuckDBConnector extends BaseConnector {
   private instance: DuckDBInstance | null = null;
@@ -38,6 +53,10 @@ export class DuckDBConnector extends BaseConnector {
   private databasePath = '';
   private connected = false;
 
+  /**
+   * @param config - Connection config; `database` is the DuckDB file path or `':memory:'`
+   * @param securityConfig - Optional overrides for query timeouts, max rows, and blocked keywords
+   */
   constructor(config: ConnectorConfig, securityConfig?: Partial<SecurityConfig>) {
     // Validate DuckDB-specific configuration
     DuckDBConnector.validateDuckDBConfig(config);

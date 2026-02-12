@@ -23,12 +23,27 @@ import { validateDatabaseIdentifier } from '../validators/index.js';
 /**
  * Secure Snowflake connector
  *
+ * The `host` field should be `<account>.snowflakecomputing.com`; the account
+ * identifier is extracted automatically.
+ *
  * Features:
  * - SQL injection prevention
  * - Credential validation
  * - Read-only query patterns
  * - Connection timeouts
  * - Secure error handling
+ *
+ * @example
+ * ```typescript
+ * import { SnowflakeConnector } from '@freshguard/freshguard-core';
+ *
+ * const connector = new SnowflakeConnector({
+ *   host: 'xy12345.us-east-1.snowflakecomputing.com', port: 443,
+ *   database: 'ANALYTICS',
+ *   username: 'READER',
+ *   password: process.env.SF_PASSWORD!,
+ * });
+ * ```
  */
 export class SnowflakeConnector extends BaseConnector {
   private connection: snowflake.Connection | null = null;
@@ -38,6 +53,10 @@ export class SnowflakeConnector extends BaseConnector {
   private schema = 'PUBLIC';
   private connected = false;
 
+  /**
+   * @param config - Connection config; `host` is `<account>.snowflakecomputing.com`
+   * @param securityConfig - Optional overrides for query timeouts, max rows, and blocked keywords
+   */
   constructor(config: ConnectorConfig, securityConfig?: Partial<SecurityConfig>) {
     // Validate Snowflake-specific configuration
     SnowflakeConnector.validateSnowflakeConfig(config);

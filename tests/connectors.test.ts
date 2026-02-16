@@ -266,6 +266,44 @@ describe('BigQueryConnector Security', () => {
       'Direct SQL queries are not allowed for security reasons'
     );
   });
+
+  it('should accept location from config options', () => {
+    const connector = new BigQueryConnector({
+      ...validBigQueryConfig,
+      options: { location: 'EU' },
+    });
+    expect(connector.getLocation()).toBe('EU');
+  });
+
+  it('should default location to US when not specified', () => {
+    const connector = new BigQueryConnector(validBigQueryConfig);
+    expect(connector.getLocation()).toBe('US');
+  });
+
+  it('should accept region-specific locations', () => {
+    const connector = new BigQueryConnector({
+      ...validBigQueryConfig,
+      options: { location: 'europe-west1' },
+    });
+    expect(connector.getLocation()).toBe('europe-west1');
+  });
+
+  it('should ignore non-string location values in options', () => {
+    const connector = new BigQueryConnector({
+      ...validBigQueryConfig,
+      options: { location: 42 },
+    });
+    expect(connector.getLocation()).toBe('US');
+  });
+
+  it('should allow overriding location via setLocation', () => {
+    const connector = new BigQueryConnector({
+      ...validBigQueryConfig,
+      options: { location: 'EU' },
+    });
+    connector.setLocation('asia-east1');
+    expect(connector.getLocation()).toBe('asia-east1');
+  });
 });
 
 describe('SnowflakeConnector Security', () => {

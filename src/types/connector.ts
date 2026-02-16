@@ -36,6 +36,8 @@ export interface ConnectorConfig {
   maxRows?: number;
   /** Application name for connection identification */
   applicationName?: string;
+  /** Connector-specific options (e.g., BigQuery location/region) */
+  options?: Record<string, unknown>;
 }
 
 /**

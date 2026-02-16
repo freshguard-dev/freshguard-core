@@ -49,10 +49,15 @@ export class BigQueryConnector extends BaseConnector {
   private client: BigQuery | null = null;
   private projectId = '';
   private location = 'US';
+  private locationExplicitlySet = false;
   private connected = false;
 
   /**
-   * @param config - Connection config; `database` is the GCP project ID
+   * @param config - Connection config; `database` is the GCP project ID.
+   *   Pass `options.location` (e.g. `'EU'`, `'us-central1'`) to target a
+   *   specific BigQuery region.  When omitted, the location is auto-detected
+   *   from the first accessible dataset; if no datasets exist the default
+   *   `'US'` is used for backward compatibility.
    * @param securityConfig - Optional overrides for query timeouts, max rows, and blocked keywords
    */
   constructor(config: ConnectorConfig, securityConfig?: Partial<SecurityConfig>) {
@@ -62,6 +67,12 @@ export class BigQueryConnector extends BaseConnector {
 
     // For BigQuery, database field contains the project ID
     this.projectId = config.database;
+
+    // Accept location from config options
+    if (config.options?.location && typeof config.options.location === 'string') {
+      this.location = config.options.location;
+      this.locationExplicitlySet = true;
+    }
   }
 
   /**
@@ -143,13 +154,28 @@ export class BigQueryConnector extends BaseConnector {
       );
 
       // Test authentication by listing datasets (limited)
-      await this.executeWithTimeout(
+      // Also auto-detect location from the first dataset when not explicitly configured
+      const datasetsResponse = await this.executeWithTimeout(
         () => {
           if (!this.client) throw new ConnectionError('BigQuery client not available');
           return this.client.getDatasets({ maxResults: 1 });
         },
         this.connectionTimeout
       );
+
+      const datasets = (datasetsResponse as unknown[])[0] as Array<{ getMetadata: () => Promise<[Record<string, unknown>]> }> | undefined;
+
+      const firstDataset = datasets?.[0];
+      if (!this.locationExplicitlySet && firstDataset) {
+        try {
+          const [metadata] = await firstDataset.getMetadata();
+          if (metadata.location && typeof metadata.location === 'string') {
+            this.location = metadata.location;
+          }
+        } catch {
+          // Auto-detection failed; keep default 'US'
+        }
+      }
 
       this.connected = true;
     } catch (error) {
@@ -593,6 +619,7 @@ export class BigQueryConnector extends BaseConnector {
     // Set location if provided
     if (options.location) {
       this.location = options.location as string;
+      this.locationExplicitlySet = true;
     }
 
     // Validate and reconnect
@@ -684,6 +711,7 @@ export class BigQueryConnector extends BaseConnector {
    */
   setLocation(location: string): void {
     this.location = location;
+    this.locationExplicitlySet = true;
   }
 
   /**

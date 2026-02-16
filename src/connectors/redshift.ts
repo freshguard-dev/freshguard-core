@@ -47,7 +47,7 @@ import { validateConnectorConfig } from '../validators/index.js';
  */
 export class RedshiftConnector extends BaseConnector {
   private client: ReturnType<typeof postgres> | null = null;
-  private schema = 'public';
+  private readonly schema: string;
   private connected = false;
 
   /**
@@ -60,9 +60,9 @@ export class RedshiftConnector extends BaseConnector {
     validateConnectorConfig(config);
     super(config, securityConfig);
 
-    if (config.options?.schema && typeof config.options.schema === 'string') {
-      this.schema = config.options.schema;
-    }
+    this.schema = (config.options?.schema && typeof config.options.schema === 'string')
+      ? config.options.schema
+      : 'public';
   }
 
   /**

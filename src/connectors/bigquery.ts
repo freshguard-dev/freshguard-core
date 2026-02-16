@@ -163,7 +163,7 @@ export class BigQueryConnector extends BaseConnector {
         this.connectionTimeout
       );
 
-      const datasets = (datasetsResponse as unknown[])[0] as Array<{ getMetadata: () => Promise<[Record<string, unknown>]> }> | undefined;
+      const datasets = (datasetsResponse as unknown[])[0] as { getMetadata: () => Promise<[Record<string, unknown>]> }[] | undefined;
 
       const firstDataset = datasets?.[0];
       if (!this.locationExplicitlySet && firstDataset) {

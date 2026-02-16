@@ -47,7 +47,7 @@ import { validateConnectorConfig } from '../validators/index.js';
  */
 export class SynapseConnector extends BaseConnector {
   private pool: mssql.ConnectionPool | null = null;
-  private schema = 'dbo';
+  private readonly schema: string;
   private connected = false;
 
   /**
@@ -60,9 +60,9 @@ export class SynapseConnector extends BaseConnector {
     validateConnectorConfig(config);
     super(config, securityConfig);
 
-    if (config.options?.schema && typeof config.options.schema === 'string') {
-      this.schema = config.options.schema;
-    }
+    this.schema = (config.options?.schema && typeof config.options.schema === 'string')
+      ? config.options.schema
+      : 'dbo';
   }
 
   /**

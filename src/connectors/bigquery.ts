@@ -362,19 +362,21 @@ export class BigQueryConnector extends BaseConnector {
    * List all tables in the project (limited to accessible datasets)
    */
   async listTables(): Promise<string[]> {
+    // Interpolate projectId directly — it's validated against /^[a-z][a-z0-9-]*[a-z0-9]$/
+    // in the constructor, and BigQuery does not support parameterized identifiers.
     const sql = `
       SELECT
         CONCAT(table_schema, '.', table_name) as table_name
-      FROM \`$1.INFORMATION_SCHEMA.TABLES\`
-      WHERE table_type = 'BASE_TABLE'
+      FROM \`${this.projectId}.INFORMATION_SCHEMA.TABLES\`
+      WHERE table_type = 'BASE TABLE'
       ORDER BY table_schema, table_name
-      LIMIT $2
+      LIMIT $1
     `;
 
     await this.validateQuery(sql);
 
     try {
-      const result = await this.executeParameterizedQuery(sql, [this.projectId, this.maxRows]);
+      const result = await this.executeParameterizedQuery(sql, [this.maxRows]);
       return result.map((row) => String((row.table_name ?? row.TABLE_NAME ?? row.tablename ?? '') as string)).filter(Boolean);
     } catch (error) {
       throw new QueryError(
@@ -400,21 +402,24 @@ export class BigQueryConnector extends BaseConnector {
 
     const [projectId, datasetId, tableName] = tableParts;
 
+    // Interpolate projectId and datasetId directly — they are validated via
+    // parseTableName() / validateDatabaseIdentifier(), and BigQuery does not
+    // support parameterized identifiers inside backtick-quoted references.
     const sql = `
       SELECT
         column_name,
         data_type,
         is_nullable
-      FROM \`$1.$2.INFORMATION_SCHEMA.COLUMNS\`
-      WHERE table_name = $3
+      FROM \`${projectId}.${datasetId}.INFORMATION_SCHEMA.COLUMNS\`
+      WHERE table_name = $1
       ORDER BY ordinal_position
-      LIMIT $4
+      LIMIT $2
     `;
 
     await this.validateQuery(sql);
 
     try {
-      const result = await this.executeParameterizedQuery(sql, [projectId, datasetId, tableName, this.maxRows]);
+      const result = await this.executeParameterizedQuery(sql, [tableName, this.maxRows]);
 
       if (result.length === 0) {
         throw QueryError.tableNotFound(table);

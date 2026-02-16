@@ -321,14 +321,14 @@ export class MSSQLConnector extends BaseConnector {
         IS_NULLABLE as is_nullable
       FROM INFORMATION_SCHEMA.COLUMNS
       WHERE TABLE_SCHEMA = 'dbo'
-        AND TABLE_NAME = '${table}'
+        AND TABLE_NAME = $1
       ORDER BY ORDINAL_POSITION
     `;
 
     await this.validateQuery(sql);
 
     try {
-      const result = await this.executeQuery(sql);
+      const result = await this.executeParameterizedQuery(sql, [table]);
       const limited = result.slice(0, this.maxRows);
 
       if (limited.length === 0) {
@@ -382,11 +382,11 @@ export class MSSQLConnector extends BaseConnector {
         SELECT MAX(last_user_update) as last_modified
         FROM sys.dm_db_index_usage_stats
         WHERE database_id = DB_ID()
-          AND object_id = OBJECT_ID('dbo.${this.escapeIdentifier(table).replace(/\[|\]/g, '')}')
+          AND object_id = OBJECT_ID($1)
       `;
 
       await this.validateQuery(sql);
-      const result = await this.executeQuery(sql);
+      const result = await this.executeParameterizedQuery(sql, [`dbo.${table}`]);
 
       if (result.length > 0 && result[0]?.last_modified) {
         return new Date(rowString(result[0].last_modified));

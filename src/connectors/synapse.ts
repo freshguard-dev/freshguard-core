@@ -333,14 +333,14 @@ export class SynapseConnector extends BaseConnector {
         IS_NULLABLE as is_nullable
       FROM INFORMATION_SCHEMA.COLUMNS
       WHERE TABLE_SCHEMA = 'dbo'
-        AND TABLE_NAME = '${table}'
+        AND TABLE_NAME = $1
       ORDER BY ORDINAL_POSITION
     `;
 
     await this.validateQuery(sql);
 
     try {
-      const result = await this.executeQuery(sql);
+      const result = await this.executeParameterizedQuery(sql, [table]);
       const limited = result.slice(0, this.maxRows);
 
       if (limited.length === 0) {
@@ -390,16 +390,17 @@ export class SynapseConnector extends BaseConnector {
 
     // Fallback: use Synapse DMV for recent requests against this table
     try {
+      this.escapeIdentifier(table);
       const sql = `
         SELECT MAX(end_time) as last_modified
         FROM sys.dm_pdw_exec_requests
-        WHERE command LIKE '%${this.escapeIdentifier(table).replace(/\[|\]/g, '')}%'
+        WHERE command LIKE $1
           AND status = 'Completed'
           AND resource_class IS NOT NULL
       `;
 
       await this.validateQuery(sql);
-      const result = await this.executeQuery(sql);
+      const result = await this.executeParameterizedQuery(sql, [`%${table}%`]);
 
       if (result.length > 0 && result[0]?.last_modified) {
         return new Date(rowString(result[0].last_modified));

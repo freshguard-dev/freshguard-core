@@ -174,14 +174,19 @@ export const DEFAULT_SECURITY_CONFIG: SecurityConfig = {
   requireSSL: true,
   /* eslint-disable security/detect-unsafe-regex -- These are SQL query validation patterns, intentionally complex */
   allowedQueryPatterns: [
-    // FreshGuard Core monitoring patterns (v0.9.1+) - Updated to handle all whitespace and quoted identifiers
-    /^SELECT\s+COUNT\(\*\)(?:\s+as\s+\w+)?\s+FROM\s+[`"]?\w+[`"]?$/is,                    // getRowCount: SELECT COUNT(*) [as alias] FROM table
-    /^SELECT\s+MAX\([`"]?\w+[`"]?\)(?:\s+as\s+\w+)?\s+FROM\s+[`"]?\w+[`"]?$/is,           // getMaxTimestamp: SELECT MAX(column) [as alias] FROM table
-    /^SELECT\s+MIN\([`"]?\w+[`"]?\)(?:\s+as\s+\w+)?\s+FROM\s+[`"]?\w+[`"]?$/is,           // getMinTimestamp: SELECT MIN(column) [as alias] FROM table
+    // FreshGuard Core monitoring patterns (v0.9.1+)
+    // Table identifier pattern supports all connector quoting styles:
+    //   unquoted:  schema.table, project.dataset.table
+    //   backticks: `schema.table` (MySQL, BigQuery)
+    //   brackets:  [schema.table] (MSSQL, Azure SQL, Synapse)
+    //   quotes:    "schema.table" (PostgreSQL, Redshift)
+    /^SELECT\s+COUNT\(\*\)(?:\s+as\s+\w+)?\s+FROM\s+(?:[`"][\w.]+[`"]|\[[\w.]+\]|\w+(?:\.\w+)*)$/is,                    // getRowCount
+    /^SELECT\s+MAX\((?:[`"]\w+[`"]|\[\w+\]|\w+)\)(?:\s+as\s+\w+)?\s+FROM\s+(?:[`"][\w.]+[`"]|\[[\w.]+\]|\w+(?:\.\w+)*)$/is,           // getMaxTimestamp
+    /^SELECT\s+MIN\((?:[`"]\w+[`"]|\[\w+\]|\w+)\)(?:\s+as\s+\w+)?\s+FROM\s+(?:[`"][\w.]+[`"]|\[[\w.]+\]|\w+(?:\.\w+)*)$/is,           // getMinTimestamp
 
     // Schema introspection queries
-    /^DESCRIBE\s+[`"]?\w+[`"]?$/i,                                                         // DESCRIBE table
-    /^SHOW\s+(TABLES|COLUMNS)(?:\s+FROM\s+[`"]?\w+[`"]?)?$/i,                            // SHOW TABLES, SHOW COLUMNS FROM table
+    /^DESCRIBE\s+(?:[`"][\w.]+[`"]|\[[\w.]+\]|\w+(?:\.\w+)*)$/i,                                              // DESCRIBE [schema.]table
+    /^SHOW\s+(TABLES|COLUMNS)(?:\s+FROM\s+(?:[`"][\w.]+[`"]|\[[\w.]+\]|\w+(?:\.\w+)*))?$/i,                   // SHOW TABLES/COLUMNS
 
     // Information schema queries (cross-database compatibility)
     /^SELECT\s+.+?\s+FROM\s+information_schema\.\w+/is,                                  // PostgreSQL/MySQL information_schema

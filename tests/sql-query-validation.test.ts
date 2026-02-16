@@ -64,24 +64,7 @@ const testSecurityConfig = {
   queryTimeout: 10000,
   maxRows: 1000,
   /* eslint-disable security/detect-unsafe-regex */
-  allowedQueryPatterns: [
-    // FreshGuard Core monitoring patterns (v0.9.1+) - Updated to handle all whitespace and quoted identifiers
-    /^SELECT\s+COUNT\(\*\)(?:\s+as\s+\w+)?\s+FROM\s+[`"]?\w+[`"]?$/is,                    // getRowCount: SELECT COUNT(*) [as alias] FROM table
-    /^SELECT\s+MAX\([`"]?\w+[`"]?\)(?:\s+as\s+\w+)?\s+FROM\s+[`"]?\w+[`"]?$/is,           // getMaxTimestamp: SELECT MAX(column) [as alias] FROM table
-    /^SELECT\s+MIN\([`"]?\w+[`"]?\)(?:\s+as\s+\w+)?\s+FROM\s+[`"]?\w+[`"]?$/is,           // getMinTimestamp: SELECT MIN(column) [as alias] FROM table
-
-    // Schema introspection queries
-    /^DESCRIBE\s+[`"]?\w+[`"]?$/i,                                                         // DESCRIBE table
-    /^SHOW\s+(TABLES|COLUMNS)(?:\s+FROM\s+[`"]?\w+[`"]?)?$/i,                            // SHOW TABLES, SHOW COLUMNS FROM table
-
-    // Information schema queries (cross-database compatibility)
-    /^SELECT\s+.+?\s+FROM\s+information_schema\.\w+/is,                                  // PostgreSQL/MySQL information_schema
-    /^SELECT[\s\S]+?FROM[\s\S]+?information_schema\.\w+/is,                              // Multi-line information_schema queries
-    /^SELECT[\s\S]+?FROM[\s\S]*`[^`]*\.INFORMATION_SCHEMA\.\w+`/is,                      // BigQuery INFORMATION_SCHEMA (backticks)
-
-    // Test connection queries
-    /^SELECT\s+1(?:\s+as\s+\w+)?$/i,                                                     // SELECT 1 [as alias] (connection test)
-  ],
+  allowedQueryPatterns: DEFAULT_SECURITY_CONFIG.allowedQueryPatterns,
   /* eslint-enable security/detect-unsafe-regex */
   blockedKeywords: [
     'INSERT', 'UPDATE', 'DELETE', 'DROP', 'ALTER', 'CREATE', 'TRUNCATE',
@@ -178,6 +161,69 @@ describe('SQL Query Generation Validation', () => {
       legitimateColumnNames.forEach((query, index) => {
         const isAllowed = patterns.some((pattern: RegExp) => pattern.test(query));
         expect(isAllowed).toBe(true, `Query ${index + 1} with column containing blocked keyword should be allowed: ${query}`);
+      });
+    });
+
+    it('should allow schema-qualified table names across all connector quoting styles', () => {
+      const patterns = DEFAULT_SECURITY_CONFIG.allowedQueryPatterns;
+
+      const schemaQualifiedQueries = [
+        // Unquoted dotted names (base connector, BigQuery)
+        'SELECT COUNT(*) as count FROM dbt_mandersson.fct_orders',
+        'SELECT COUNT(*) as count FROM myschema.mytable',
+        'SELECT MAX(updated_at) as max_date FROM analytics.events',
+        'SELECT MIN(created_at) as min_date FROM raw.customers',
+
+        // Three-part names (BigQuery project.dataset.table, Snowflake db.schema.table)
+        'SELECT COUNT(*) as count FROM project.dataset.table',
+        'SELECT MAX(ts) as max_date FROM myproject.mydataset.mytable',
+        'SELECT MIN(ts) as min_date FROM db.schema.table',
+
+        // Backtick-quoted dotted names (MySQL, BigQuery)
+        'SELECT COUNT(*) as count FROM `schema.table`',
+        'SELECT COUNT(*) as count FROM `project.dataset.table`',
+        'SELECT MAX(col) as max_date FROM `dbt_mandersson.fct_orders`',
+        'SELECT MIN(col) as min_date FROM `my_dataset.my_table`',
+
+        // Double-quote-quoted dotted names (PostgreSQL, Redshift)
+        'SELECT COUNT(*) as count FROM "schema.table"',
+        'SELECT MAX(col) as max_date FROM "public.orders"',
+        'SELECT MIN(col) as min_date FROM "analytics.events"',
+
+        // Bracket-quoted dotted names (MSSQL, Azure SQL, Synapse)
+        'SELECT COUNT(*) as count FROM [dbo.orders]',
+        'SELECT COUNT(*) as count FROM [schema.table]',
+        'SELECT MAX(col) as max_date FROM [myschema.mytable]',
+        'SELECT MIN(col) as min_date FROM [dbo.audit_logs]',
+
+        // DESCRIBE and SHOW with schema-qualified names
+        'DESCRIBE myschema.mytable',
+        'DESCRIBE `schema.table`',
+        'DESCRIBE "public.orders"',
+        'DESCRIBE [dbo.users]',
+        'SHOW COLUMNS FROM myschema.mytable',
+        'SHOW COLUMNS FROM `schema.table`',
+      ];
+
+      schemaQualifiedQueries.forEach((query, index) => {
+        const isAllowed = patterns.some((pattern: RegExp) => pattern.test(query));
+        expect(isAllowed).toBe(true, `Schema-qualified query ${index + 1} should be allowed: ${query}`);
+      });
+    });
+
+    it('should block schema-qualified names with injection attempts', () => {
+      const patterns = DEFAULT_SECURITY_CONFIG.allowedQueryPatterns;
+
+      const maliciousQueries = [
+        // Injection via dotted names
+        'SELECT COUNT(*) as count FROM schema.table; DROP TABLE users',
+        'SELECT COUNT(*) as count FROM schema.table UNION SELECT * FROM secrets',
+        'SELECT MAX(col) as max_date FROM schema.table WHERE 1=1',
+      ];
+
+      maliciousQueries.forEach((query, index) => {
+        const isAllowed = patterns.some((pattern: RegExp) => pattern.test(query));
+        expect(isAllowed).toBe(false, `Malicious schema-qualified query ${index + 1} should be blocked: ${query}`);
       });
     });
 

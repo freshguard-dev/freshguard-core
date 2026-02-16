@@ -160,7 +160,7 @@ interface ConnectorConfig {
 |---|---|---|
 | `PostgresConnector` | Standard PostgreSQL | `schema` (default: `'public'`) |
 | `DuckDBConnector` | `database` = file path or `':memory:'` | — |
-| `BigQueryConnector` | `database` = GCP project ID | `location` (default: auto-detected, fallback `'US'`) |
+| `BigQueryConnector` | `database` = GCP project ID | `location` (default: auto-detected, fallback `'US'`), `dataset` (scope `listTables()` to one dataset) |
 | `SnowflakeConnector` | `host` = `<account>.snowflakecomputing.com` | `schema` (default: `'PUBLIC'`), `warehouse` |
 | `MySQLConnector` | Standard MySQL, port 3306 | — |
 | `RedshiftConnector` | PostgreSQL wire protocol, port 5439 | `schema` (default: `'public'`) |
@@ -186,6 +186,14 @@ const bq = new BigQueryConnector({
   database: 'my-gcp-project', username: 'bigquery',
   password: serviceAccountJson,
   options: { location: 'EU' },
+});
+
+// Example: BigQuery scoped to a single dataset
+const bqScoped = new BigQueryConnector({
+  host: 'bigquery.googleapis.com', port: 443,
+  database: 'my-gcp-project', username: 'bigquery',
+  password: serviceAccountJson,
+  options: { dataset: 'my_dataset' },
 });
 
 // Example: SQL Server with custom schema

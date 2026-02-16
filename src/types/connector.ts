@@ -42,6 +42,7 @@ export interface ConnectorConfig {
    * | Connector | Key | Default | Description |
    * |-----------|-----|---------|-------------|
    * | BigQuery | `location` | auto-detected / `'US'` | Dataset region |
+   * | BigQuery | `dataset` | *(none — project-wide)* | Scope `listTables()` to a single dataset |
    * | Snowflake | `schema` | `'PUBLIC'` | Target schema |
    * | Snowflake | `warehouse` | `''` | Compute warehouse |
    * | PostgreSQL | `schema` | `'public'` | Target schema |

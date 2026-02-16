@@ -7,13 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.15.4] - 2026-02-16
+## [0.15.5] - 2026-02-16
 
 ### Fixed
 - BigQuery connector no longer hardcodes location to `'US'` — accepts `options.location` in `ConnectorConfig` and auto-detects from the first accessible dataset when not specified (#51)
+- MSSQL, Azure SQL, and Synapse connectors no longer hardcode schema to `'dbo'` — accepts `options.schema`
+- PostgreSQL and Redshift connectors no longer hardcode schema to `'public'` — accepts `options.schema`
+- Snowflake connector now accepts `options.schema` and `options.warehouse` via the constructor
 
 ### Changed
 - `ConnectorConfig` now accepts an optional `options` record for connector-specific settings
+- Updated SKILL.md, README, CLAUDE.md, and SELF_HOSTING.md to document `options` across all connectors
 
 ## [0.15.0] - 2026-02-12
 

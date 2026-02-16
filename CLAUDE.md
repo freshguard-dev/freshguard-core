@@ -184,21 +184,32 @@ pnpm pre-commit
 
 ### Adding a New Database Connector
 
-Example: Adding Snowflake support
+Example: Adding a new connector (e.g. ClickHouse)
 
-1. Create file: `src/connectors/snowflake.ts`
-2. Implement interface:
+1. Create file: `src/connectors/clickhouse.ts`
+2. Extend `BaseConnector` and implement the `Connector` interface
+3. **Read connector-specific settings from `config.options`** — never hardcode
+   schema, location, warehouse, or similar environment-dependent values:
    ```typescript
-   interface DatabaseConnector {
-     testConnection(): Promise<void>;
-     listTables(): Promise<string[]>;
-     executeQuery(sql: string): Promise<any>;
+   export class ClickHouseConnector extends BaseConnector {
+     private schema = 'default'; // sensible default for backward compat
+
+     constructor(config: ConnectorConfig, securityConfig?: Partial<SecurityConfig>) {
+       super(config, securityConfig);
+       // Read connector-specific options
+       if (config.options?.schema && typeof config.options.schema === 'string') {
+         this.schema = config.options.schema;
+       }
+     }
    }
    ```
-3. Add tests: `tests/connectors/snowflake.test.ts`
-4. Export in `src/connectors/index.ts`
-5. Update README with example
-6. Add integration test with real/mock Snowflake
+4. Use `this.schema` (not a hardcoded string) in `listTables()`, `getTableSchema()`,
+   and `getLastModified()` queries
+5. Add tests: `tests/connectors/clickhouse.test.ts`
+6. Export in `src/connectors/index.ts`
+7. Document supported `options` keys in the `ConnectorConfig` JSDoc table
+   (`src/types/connector.ts`), SKILL.md connector table, and README
+8. Add integration test with real/mock database
 
 ### Adding a New Monitoring Algorithm
 

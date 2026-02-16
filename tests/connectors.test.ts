@@ -169,6 +169,19 @@ describe('PostgresConnector Security', () => {
       ssl: false,
     })).toThrow(SecurityError);
   });
+
+  it('should accept schema from config options', () => {
+    const connector = new PostgresConnector({
+      ...validPostgresConfig,
+      options: { schema: 'analytics' },
+    });
+    expect(connector).toBeDefined();
+  });
+
+  it('should default schema to public when not specified', () => {
+    const connector = new PostgresConnector(validPostgresConfig);
+    expect(connector).toBeDefined();
+  });
 });
 
 describe('DuckDBConnector Security', () => {
@@ -347,6 +360,27 @@ describe('SnowflakeConnector Security', () => {
       'Direct SQL queries are not allowed for security reasons'
     );
   });
+
+  it('should accept schema from config options', () => {
+    const connector = new SnowflakeConnector({
+      ...validSnowflakeConfig,
+      options: { schema: 'RAW_DATA' },
+    });
+    expect(connector.getSchema()).toBe('RAW_DATA');
+  });
+
+  it('should default schema to PUBLIC when not specified', () => {
+    const connector = new SnowflakeConnector(validSnowflakeConfig);
+    expect(connector.getSchema()).toBe('PUBLIC');
+  });
+
+  it('should accept warehouse from config options', () => {
+    const connector = new SnowflakeConnector({
+      ...validSnowflakeConfig,
+      options: { warehouse: 'COMPUTE_WH' },
+    });
+    expect(connector.getWarehouse()).toBe('COMPUTE_WH');
+  });
 });
 
 describe('MySQLConnector Security', () => {
@@ -487,6 +521,19 @@ describe('RedshiftConnector Security', () => {
     delete config.port;
     expect(() => new RedshiftConnector(config)).not.toThrow();
   });
+
+  it('should accept schema from config options', () => {
+    const connector = new RedshiftConnector({
+      ...validRedshiftConfig,
+      options: { schema: 'staging' },
+    });
+    expect(connector).toBeDefined();
+  });
+
+  it('should default schema to public when not specified', () => {
+    const connector = new RedshiftConnector(validRedshiftConfig);
+    expect(connector).toBeDefined();
+  });
 });
 
 describe('MSSQLConnector Security', () => {
@@ -563,6 +610,27 @@ describe('MSSQLConnector Security', () => {
     // Bracket notation is used internally - verify via getTableSchema not throwing on valid names
     expect(connector.getTableSchema).toBeDefined();
   });
+
+  it('should accept schema from config options', () => {
+    const connector = new MSSQLConnector({
+      ...validMSSQLConfig,
+      options: { schema: 'staging' },
+    });
+    expect(connector).toBeDefined();
+  });
+
+  it('should default schema to dbo when not specified', () => {
+    const connector = new MSSQLConnector(validMSSQLConfig);
+    expect(connector).toBeDefined();
+  });
+
+  it('should ignore non-string schema values in options', () => {
+    const connector = new MSSQLConnector({
+      ...validMSSQLConfig,
+      options: { schema: 123 },
+    });
+    expect(connector).toBeDefined();
+  });
 });
 
 describe('AzureSQLConnector Security', () => {
@@ -633,6 +701,19 @@ describe('AzureSQLConnector Security', () => {
     delete config.port;
     expect(() => new AzureSQLConnector(config)).not.toThrow();
   });
+
+  it('should accept schema from config options', () => {
+    const connector = new AzureSQLConnector({
+      ...validAzureSQLConfig,
+      options: { schema: 'analytics' },
+    });
+    expect(connector).toBeDefined();
+  });
+
+  it('should default schema to dbo when not specified', () => {
+    const connector = new AzureSQLConnector(validAzureSQLConfig);
+    expect(connector).toBeDefined();
+  });
 });
 
 describe('SynapseConnector Security', () => {
@@ -702,6 +783,19 @@ describe('SynapseConnector Security', () => {
     const config = { ...validSynapseConfig };
     delete config.port;
     expect(() => new SynapseConnector(config)).not.toThrow();
+  });
+
+  it('should accept schema from config options', () => {
+    const connector = new SynapseConnector({
+      ...validSynapseConfig,
+      options: { schema: 'warehouse' },
+    });
+    expect(connector).toBeDefined();
+  });
+
+  it('should default schema to dbo when not specified', () => {
+    const connector = new SynapseConnector(validSynapseConfig);
+    expect(connector).toBeDefined();
   });
 });
 

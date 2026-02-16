@@ -46,16 +46,22 @@ import { validateConnectorConfig } from '../validators/index.js';
  */
 export class AzureSQLConnector extends BaseConnector {
   private pool: mssql.ConnectionPool | null = null;
+  private schema = 'dbo';
   private connected = false;
 
   /**
-   * @param config - Database connection settings (host, port, database, credentials)
+   * @param config - Database connection settings (host, port, database, credentials).
+   *   Pass `options.schema` to target a specific schema (default: `'dbo'`).
    * @param securityConfig - Optional overrides for query timeouts, max rows, and blocked keywords
    */
   constructor(config: ConnectorConfig, securityConfig?: Partial<SecurityConfig>) {
     // Validate configuration before proceeding
     validateConnectorConfig(config);
     super(config, securityConfig);
+
+    if (config.options?.schema && typeof config.options.schema === 'string') {
+      this.schema = config.options.schema;
+    }
   }
 
   /**
@@ -292,14 +298,14 @@ export class AzureSQLConnector extends BaseConnector {
       SELECT TABLE_NAME as table_name
       FROM INFORMATION_SCHEMA.TABLES
       WHERE TABLE_TYPE = 'BASE TABLE'
-        AND TABLE_SCHEMA = 'dbo'
+        AND TABLE_SCHEMA = $1
       ORDER BY TABLE_NAME
     `;
 
     await this.validateQuery(sql);
 
     try {
-      const result = await this.executeQuery(sql);
+      const result = await this.executeParameterizedQuery(sql, [this.schema]);
       return result
         .slice(0, this.maxRows)
         .map((row) => rowString(row.table_name ?? row.TABLE_NAME ?? row.tablename))
@@ -327,15 +333,15 @@ export class AzureSQLConnector extends BaseConnector {
         DATA_TYPE as data_type,
         IS_NULLABLE as is_nullable
       FROM INFORMATION_SCHEMA.COLUMNS
-      WHERE TABLE_SCHEMA = 'dbo'
-        AND TABLE_NAME = $1
+      WHERE TABLE_SCHEMA = $1
+        AND TABLE_NAME = $2
       ORDER BY ORDINAL_POSITION
     `;
 
     await this.validateQuery(sql);
 
     try {
-      const result = await this.executeParameterizedQuery(sql, [table]);
+      const result = await this.executeParameterizedQuery(sql, [this.schema, table]);
       const limited = result.slice(0, this.maxRows);
 
       if (limited.length === 0) {
@@ -393,7 +399,7 @@ export class AzureSQLConnector extends BaseConnector {
       `;
 
       await this.validateQuery(sql);
-      const result = await this.executeParameterizedQuery(sql, [`dbo.${table}`]);
+      const result = await this.executeParameterizedQuery(sql, [`${this.schema}.${table}`]);
 
       if (result.length > 0 && result[0]?.last_modified) {
         return new Date(rowString(result[0].last_modified));

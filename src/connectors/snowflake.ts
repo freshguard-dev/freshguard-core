@@ -54,7 +54,9 @@ export class SnowflakeConnector extends BaseConnector {
   private connected = false;
 
   /**
-   * @param config - Connection config; `host` is `<account>.snowflakecomputing.com`
+   * @param config - Connection config; `host` is `<account>.snowflakecomputing.com`.
+   *   Pass `options.schema` to target a specific schema (default: `'PUBLIC'`).
+   *   Pass `options.warehouse` to specify the compute warehouse.
    * @param securityConfig - Optional overrides for query timeouts, max rows, and blocked keywords
    */
   constructor(config: ConnectorConfig, securityConfig?: Partial<SecurityConfig>) {
@@ -65,6 +67,14 @@ export class SnowflakeConnector extends BaseConnector {
     // Extract account from host
     this.account = this.extractAccount(config.host);
     this.database = config.database;
+
+    // Accept schema and warehouse from config options
+    if (config.options?.schema && typeof config.options.schema === 'string') {
+      this.schema = config.options.schema;
+    }
+    if (config.options?.warehouse && typeof config.options.warehouse === 'string') {
+      this.warehouse = config.options.warehouse;
+    }
   }
 
   /**

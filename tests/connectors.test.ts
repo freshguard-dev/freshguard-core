@@ -317,6 +317,60 @@ describe('BigQueryConnector Security', () => {
     connector.setLocation('asia-east1');
     expect(connector.getLocation()).toBe('asia-east1');
   });
+
+  it('should accept dataset from config options', () => {
+    const connector = new BigQueryConnector({
+      ...validBigQueryConfig,
+      options: { dataset: 'my_dataset' },
+    });
+    expect(connector.getDataset()).toBe('my_dataset');
+  });
+
+  it('should default dataset to undefined when not specified', () => {
+    const connector = new BigQueryConnector(validBigQueryConfig);
+    expect(connector.getDataset()).toBeUndefined();
+  });
+
+  it('should allow setting dataset via setDataset', () => {
+    const connector = new BigQueryConnector(validBigQueryConfig);
+    connector.setDataset('analytics');
+    expect(connector.getDataset()).toBe('analytics');
+  });
+
+  it('should allow overriding dataset via setDataset', () => {
+    const connector = new BigQueryConnector({
+      ...validBigQueryConfig,
+      options: { dataset: 'original' },
+    });
+    connector.setDataset('updated');
+    expect(connector.getDataset()).toBe('updated');
+  });
+
+  it('should ignore non-string dataset values in options', () => {
+    const connector = new BigQueryConnector({
+      ...validBigQueryConfig,
+      options: { dataset: 42 },
+    });
+    expect(connector.getDataset()).toBeUndefined();
+  });
+
+  it('should reject invalid dataset identifiers via setDataset', () => {
+    const connector = new BigQueryConnector(validBigQueryConfig);
+    expect(() => connector.setDataset('DROP TABLE; --')).toThrow();
+  });
+
+  it('should reject invalid dataset identifiers from config options', () => {
+    expect(() => new BigQueryConnector({
+      ...validBigQueryConfig,
+      options: { dataset: 'DROP TABLE; --' },
+    })).toThrow();
+  });
+
+  it('should have setDataset and getDataset methods', () => {
+    const connector = new BigQueryConnector(validBigQueryConfig);
+    expect(connector.setDataset).toBeDefined();
+    expect(connector.getDataset).toBeDefined();
+  });
 });
 
 describe('SnowflakeConnector Security', () => {

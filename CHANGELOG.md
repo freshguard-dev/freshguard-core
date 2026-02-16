@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-02-16
+
+### Added
+- `BigQueryConnector.setDataset()` / `getDataset()` to scope `listTables()` to a single dataset (#54)
+- `options.dataset` support in `ConnectorConfig` for BigQuery — required when the service account only has dataset-level permissions
+
 ## [0.15.5] - 2026-02-16
 
 ### Fixed

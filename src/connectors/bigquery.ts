@@ -18,7 +18,7 @@ import {
   SecurityError,
   ErrorHandler
 } from '../errors/index.js';
-import { validateDatabaseIdentifier } from '../validators/index.js';
+import { validateDatabaseIdentifier, validateTableName } from '../validators/index.js';
 
 /**
  * Secure BigQuery connector
@@ -50,6 +50,7 @@ export class BigQueryConnector extends BaseConnector {
   private projectId = '';
   private location = 'US';
   private locationExplicitlySet = false;
+  private dataset: string | undefined;
   private connected = false;
 
   /**
@@ -72,6 +73,12 @@ export class BigQueryConnector extends BaseConnector {
     if (config.options?.location && typeof config.options.location === 'string') {
       this.location = config.options.location;
       this.locationExplicitlySet = true;
+    }
+
+    // Accept dataset from config options
+    if (config.options?.dataset && typeof config.options.dataset === 'string') {
+      validateTableName(config.options.dataset);
+      this.dataset = config.options.dataset;
     }
   }
 
@@ -385,15 +392,34 @@ export class BigQueryConnector extends BaseConnector {
   }
 
   /**
-   * List all tables in the project (limited to accessible datasets)
+   * List all tables in the project, or in a single dataset when one is set.
+   *
+   * When a dataset is configured (via `options.dataset` or {@link setDataset}),
+   * the query targets `{project}.{dataset}.INFORMATION_SCHEMA.TABLES` which
+   * only requires dataset-level permissions.  Without a dataset the query
+   * targets `{project}.INFORMATION_SCHEMA.TABLES` (project-wide).
    */
   async listTables(): Promise<string[]> {
-    // Interpolate projectId directly — it's validated against /^[a-z][a-z0-9-]*[a-z0-9]$/
-    // in the constructor, and BigQuery does not support parameterized identifiers.
-    const sql = `
+    // Interpolate projectId (and dataset) directly — they are validated in the
+    // constructor / setDataset(), and BigQuery does not support parameterized
+    // identifiers inside backtick-quoted references.
+    const source = this.dataset
+      ? `\`${this.projectId}.${this.dataset}.INFORMATION_SCHEMA.TABLES\``
+      : `\`${this.projectId}.INFORMATION_SCHEMA.TABLES\``;
+
+    const sql = this.dataset
+      ? `
+      SELECT
+        CONCAT('${this.dataset}', '.', table_name) as table_name
+      FROM ${source}
+      WHERE table_type = 'BASE TABLE'
+      ORDER BY table_name
+      LIMIT $1
+    `
+      : `
       SELECT
         CONCAT(table_schema, '.', table_name) as table_name
-      FROM \`${this.projectId}.INFORMATION_SCHEMA.TABLES\`
+      FROM ${source}
       WHERE table_type = 'BASE TABLE'
       ORDER BY table_schema, table_name
       LIMIT $1
@@ -719,5 +745,25 @@ export class BigQueryConnector extends BaseConnector {
    */
   getLocation(): string {
     return this.location;
+  }
+
+  /**
+   * Scope subsequent `listTables()` calls to a single dataset.
+   *
+   * When a dataset is set, `listTables()` queries
+   * `{project}.{dataset}.INFORMATION_SCHEMA.TABLES` instead of the
+   * project-wide `INFORMATION_SCHEMA.TABLES`.  This is required when the
+   * service account only has dataset-level permissions.
+   */
+  setDataset(dataset: string): void {
+    validateTableName(dataset);
+    this.dataset = dataset;
+  }
+
+  /**
+   * Get the currently configured dataset, or `undefined` if not set.
+   */
+  getDataset(): string | undefined {
+    return this.dataset;
   }
 }

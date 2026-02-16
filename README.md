@@ -78,7 +78,7 @@ if (result.status === 'alert') {
 | `AzureSQLConnector` | Azure SQL Database |
 | `SynapseConnector` | Azure Synapse Analytics |
 
-All connectors accept a `ConnectorConfig` (host, port, database, username, password, ssl) and an optional `SecurityConfig` override. Pass connector-specific settings via `options` — e.g., `options: { schema: 'staging' }` for non-default schemas, `options: { location: 'EU' }` for BigQuery region, or `options: { warehouse: 'COMPUTE_WH' }` for Snowflake.
+All connectors accept a `ConnectorConfig` (host, port, database, username, password, ssl) and an optional `SecurityConfig` override. Pass connector-specific settings via `options` — e.g., `options: { schema: 'staging' }` for non-default schemas, `options: { location: 'EU' }` for BigQuery region, `options: { dataset: 'my_dataset' }` to scope BigQuery to a single dataset, or `options: { warehouse: 'COMPUTE_WH' }` for Snowflake.
 
 ### Metadata storage
 

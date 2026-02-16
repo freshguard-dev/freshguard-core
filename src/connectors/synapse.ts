@@ -394,7 +394,15 @@ export class SynapseConnector extends BaseConnector {
       }
     }
 
-    // Fallback: use Synapse DMV for recent requests against this table
+    // Fallback: use Synapse DMV for recent requests against this table.
+    // NOTE: sys.dm_pdw_exec_requests requires VIEW DATABASE STATE permission.
+    // This is an OPTIONAL elevated privilege — if unavailable the connector
+    // returns null. Be aware that this DMV exposes query text from ALL users
+    // in the warehouse, so granting VIEW DATABASE STATE has broader
+    // information-disclosure implications than the other permissions
+    // FreshGuard requires. The minimum required permission is SELECT on
+    // monitored tables; this DMV fallback only provides approximate
+    // last-modified timestamps.
     try {
       this.escapeIdentifier(table);
       const sql = `

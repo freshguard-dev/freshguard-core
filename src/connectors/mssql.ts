@@ -382,7 +382,11 @@ export class MSSQLConnector extends BaseConnector {
       }
     }
 
-    // Fallback: use SQL Server DMV for index usage stats
+    // Fallback: use SQL Server DMV for index usage stats.
+    // NOTE: sys.dm_db_index_usage_stats requires VIEW DATABASE STATE permission.
+    // This is an OPTIONAL elevated privilege — if unavailable the connector
+    // returns null. The minimum required permission is SELECT on monitored tables;
+    // VIEW DATABASE STATE only improves getLastModified() accuracy.
     try {
       const sql = `
         SELECT MAX(last_user_update) as last_modified

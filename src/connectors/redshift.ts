@@ -369,9 +369,13 @@ export class RedshiftConnector extends BaseConnector {
       }
     }
 
-    // Fallback: use Redshift system views to get table information
+    // Fallback: use Redshift system views to get table information.
+    // NOTE: svv_table_info requires superuser or the SYS:MONITOR role.
+    // This is an OPTIONAL elevated privilege — if the query fails due to
+    // insufficient permissions the connector falls back to pg_stat_user_tables
+    // (accessible to the table owner) and ultimately returns null.
     try {
-      // Try SVV_TABLE_INFO for table statistics
+      // Try SVV_TABLE_INFO for table statistics (requires superuser or SYS:MONITOR)
       const sql = `
         SELECT MAX(last_modified_time) as last_modified
         FROM svv_table_info
@@ -385,7 +389,8 @@ export class RedshiftConnector extends BaseConnector {
         return new Date(rowString(result[0].last_modified));
       }
     } catch {
-      // SVV_TABLE_INFO query failed, try pg_stat_user_tables fallback
+      // SVV_TABLE_INFO query failed (likely insufficient privileges), try
+      // pg_stat_user_tables fallback (accessible to the table owner, no extra grants needed)
       try {
         const sql = `
           SELECT GREATEST(

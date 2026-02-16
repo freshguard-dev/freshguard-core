@@ -362,7 +362,10 @@ export class PostgresConnector extends BaseConnector {
       }
     }
 
-    // Fallback: use PostgreSQL system catalog to get table modification time
+    // Fallback: use PostgreSQL system catalog to get table modification time.
+    // This query uses pg_class/pg_namespace (accessible to PUBLIC by default)
+    // and pg_stat_get_last_analyze_time/pg_stat_get_last_autoanalyze_time
+    // (also PUBLIC). No elevated privileges required.
     try {
       const sql = `
         SELECT GREATEST(

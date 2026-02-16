@@ -40,6 +40,7 @@ const connector = new PostgresConnector({
   username: process.env.DB_USER!,     // Use read-only user
   password: process.env.DB_PASSWORD!, // From environment variables
   ssl: true,                          // Enable SSL
+  // options: { schema: 'analytics' } // Uncomment if your tables are in a non-default schema
 });
 
 // Define monitoring rule

@@ -36,6 +36,21 @@ export interface ConnectorConfig {
   maxRows?: number;
   /** Application name for connection identification */
   applicationName?: string;
+  /**
+   * Connector-specific options.
+   *
+   * | Connector | Key | Default | Description |
+   * |-----------|-----|---------|-------------|
+   * | BigQuery | `location` | auto-detected / `'US'` | Dataset region |
+   * | Snowflake | `schema` | `'PUBLIC'` | Target schema |
+   * | Snowflake | `warehouse` | `''` | Compute warehouse |
+   * | PostgreSQL | `schema` | `'public'` | Target schema |
+   * | Redshift | `schema` | `'public'` | Target schema |
+   * | MSSQL | `schema` | `'dbo'` | Target schema |
+   * | Azure SQL | `schema` | `'dbo'` | Target schema |
+   * | Synapse | `schema` | `'dbo'` | Target schema |
+   */
+  options?: Record<string, unknown>;
 }
 
 /**

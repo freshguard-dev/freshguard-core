@@ -46,16 +46,22 @@ import { validateConnectorConfig } from '../validators/index.js';
  */
 export class PostgresConnector extends BaseConnector {
   private client: ReturnType<typeof postgres> | null = null;
+  private readonly schema: string;
   private connected = false;
 
   /**
-   * @param config - Database connection settings (host, port, database, credentials)
+   * @param config - Database connection settings (host, port, database, credentials).
+   *   Pass `options.schema` to target a specific schema (default: `'public'`).
    * @param securityConfig - Optional overrides for query timeouts, max rows, SSL, and blocked keywords
    */
   constructor(config: ConnectorConfig, securityConfig?: Partial<SecurityConfig>) {
     // Validate configuration before proceeding
     validateConnectorConfig(config);
     super(config, securityConfig);
+
+    this.schema = (config.options?.schema && typeof config.options.schema === 'string')
+      ? config.options.schema
+      : 'public';
   }
 
   /**
@@ -275,7 +281,7 @@ export class PostgresConnector extends BaseConnector {
     await this.validateQuery(sql);
 
     try {
-      const result = await this.executeParameterizedQuery(sql, ['public', this.maxRows]);
+      const result = await this.executeParameterizedQuery(sql, [this.schema, this.maxRows]);
       return result.map((row) => String((row.table_name ?? row.TABLE_NAME ?? row.tablename ?? '') as string)).filter(Boolean);
     } catch (error) {
       throw new QueryError(
@@ -309,7 +315,7 @@ export class PostgresConnector extends BaseConnector {
     await this.validateQuery(sql);
 
     try {
-      const result = await this.executeParameterizedQuery(sql, ['public', table, this.maxRows]);
+      const result = await this.executeParameterizedQuery(sql, [this.schema, table, this.maxRows]);
 
       if (result.length === 0) {
         throw QueryError.tableNotFound(table);
@@ -369,7 +375,7 @@ export class PostgresConnector extends BaseConnector {
       `;
 
       await this.validateQuery(sql);
-      const result = await this.executeParameterizedQuery(sql, ['public', table]);
+      const result = await this.executeParameterizedQuery(sql, [this.schema, table]);
 
       if (result.length > 0 && result[0]?.last_modified) {
         return new Date(String(result[0].last_modified as string | number));

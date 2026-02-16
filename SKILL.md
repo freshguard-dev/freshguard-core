@@ -152,20 +152,49 @@ interface ConnectorConfig {
   timeout?: number;       // connection timeout ms (default: 30000)
   queryTimeout?: number;  // query timeout ms (default: 10000)
   maxRows?: number;       // max rows returned (default: 1000)
+  options?: Record<string, unknown>; // connector-specific options (see table below)
 }
 ```
 
-| Connector | Notes |
-|---|---|
-| `PostgresConnector` | Standard PostgreSQL |
-| `DuckDBConnector` | `database` = file path or `':memory:'` |
-| `BigQueryConnector` | `database` = GCP project ID |
-| `SnowflakeConnector` | `host` = `<account>.snowflakecomputing.com` |
-| `MySQLConnector` | Standard MySQL, port 3306 |
-| `RedshiftConnector` | PostgreSQL wire protocol, port 5439 |
-| `MSSQLConnector` | SQL Server, port 1433 |
-| `AzureSQLConnector` | `host` = `<server>.database.windows.net` |
-| `SynapseConnector` | `host` = `<workspace>.sql.azuresynapse.net` |
+| Connector | Notes | `options` keys |
+|---|---|---|
+| `PostgresConnector` | Standard PostgreSQL | `schema` (default: `'public'`) |
+| `DuckDBConnector` | `database` = file path or `':memory:'` | — |
+| `BigQueryConnector` | `database` = GCP project ID | `location` (default: auto-detected, fallback `'US'`) |
+| `SnowflakeConnector` | `host` = `<account>.snowflakecomputing.com` | `schema` (default: `'PUBLIC'`), `warehouse` |
+| `MySQLConnector` | Standard MySQL, port 3306 | — |
+| `RedshiftConnector` | PostgreSQL wire protocol, port 5439 | `schema` (default: `'public'`) |
+| `MSSQLConnector` | SQL Server, port 1433 | `schema` (default: `'dbo'`) |
+| `AzureSQLConnector` | `host` = `<server>.database.windows.net` | `schema` (default: `'dbo'`) |
+| `SynapseConnector` | `host` = `<workspace>.sql.azuresynapse.net` | `schema` (default: `'dbo'`) |
+
+**Important**: If your tables live in a non-default schema, you **must** pass `options.schema`
+(or `options.location` for BigQuery). Without it, `listTables()` and `getTableSchema()` will
+only see the default schema and may return empty results or errors.
+
+```typescript
+// Example: Snowflake with custom schema and warehouse
+const sf = new SnowflakeConnector({
+  host: 'xy12345.snowflakecomputing.com', port: 443,
+  database: 'ANALYTICS', username: 'READER', password: '...',
+  options: { schema: 'RAW_DATA', warehouse: 'COMPUTE_WH' },
+});
+
+// Example: BigQuery with EU location
+const bq = new BigQueryConnector({
+  host: 'bigquery.googleapis.com', port: 443,
+  database: 'my-gcp-project', username: 'bigquery',
+  password: serviceAccountJson,
+  options: { location: 'EU' },
+});
+
+// Example: SQL Server with custom schema
+const mssql = new MSSQLConnector({
+  host: 'sql.example.com', port: 1433,
+  database: 'analytics', username: 'readonly', password: '...',
+  options: { schema: 'staging' },
+});
+```
 
 ---
 

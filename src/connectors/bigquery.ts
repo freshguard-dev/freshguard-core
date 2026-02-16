@@ -230,7 +230,11 @@ export class BigQueryConnector extends BaseConnector {
         query: finalSql,
         location: this.location,
         maxResults: this.maxRows,
-        jobTimeoutMs: this.queryTimeout,
+        // jobTimeoutMs intentionally omitted — setting it forces the
+        // @google-cloud/bigquery client to use the slow query path
+        // (jobs.insert + getQueryResults) which creates anonymous temp
+        // tables that can fail with permission errors.  Timeout
+        // protection is already provided by executeWithTimeout(). (#57)
         useLegacySql: false, // Force standard SQL for security
       };
 

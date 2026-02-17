@@ -43,6 +43,23 @@ export function createVolumeRule(table: string): MonitoringRule {
   };
 }
 
+/** Creates a volume threshold rule — simple min/max bounds for test data */
+export function createVolumeThresholdRule(table: string): MonitoringRule {
+  return {
+    id: `integ-volume-threshold-${table}`,
+    sourceId: 'integ-test',
+    name: `Volume Threshold: ${table}`,
+    tableName: table,
+    ruleType: 'volume_threshold',
+    minRowThreshold: 1,          // test data has at least 1 row
+    maxRowThreshold: 1_000_000,  // test data well under 1M rows
+    checkIntervalMinutes: 5,
+    isActive: true,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
 /** Creates a schema change rule — manual adaptation, full monitoring */
 export function createSchemaRule(table: string): MonitoringRule {
   return {

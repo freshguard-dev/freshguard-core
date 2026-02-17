@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-02-17
+
+### Added
+- **Volume threshold monitoring** (`checkVolumeThreshold`) — simple min/max row count alerting without historical baselines (#65)
+- `volume_threshold` added to `RuleType` union
+- `minRowThreshold` and `maxRowThreshold` fields on `MonitoringRule`
+
 ## [0.17.0] - 2026-02-16
 
 ### Added
@@ -179,7 +186,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Drizzle ORM database schema and migrations
 - MIT license
 
-[Unreleased]: https://github.com/freshguard-dev/freshguard-core/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/freshguard-dev/freshguard-core/compare/v0.18.0...HEAD
+[0.18.0]: https://github.com/freshguard-dev/freshguard-core/compare/v0.17.0...v0.18.0
 [0.15.0]: https://github.com/freshguard-dev/freshguard-core/compare/v0.12.0...v0.15.0
 [0.12.0]: https://github.com/freshguard-dev/freshguard-core/compare/v0.11.3...v0.12.0
 [0.11.3]: https://github.com/freshguard-dev/freshguard-core/compare/v0.11.2...v0.11.3

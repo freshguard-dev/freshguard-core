@@ -18,6 +18,12 @@ describe('Package Exports', () => {
     expect(typeof checkVolumeAnomaly).toBe('function');
   });
 
+  it('should export checkVolumeThreshold function', async () => {
+    const { checkVolumeThreshold } = await import('../src/monitor/volume-threshold.js');
+    expect(checkVolumeThreshold).toBeDefined();
+    expect(typeof checkVolumeThreshold).toBe('function');
+  });
+
   it('should export PostgresConnector class', async () => {
     const { PostgresConnector } = await import('../src/connectors/postgres.js');
     expect(PostgresConnector).toBeDefined();

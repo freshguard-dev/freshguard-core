@@ -14,9 +14,10 @@
 
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import { CONNECTOR_REGISTRY } from './connector-registry.js';
-import { createFreshnessRule, createVolumeRule, createSchemaRule } from './monitor-rules.js';
+import { createFreshnessRule, createVolumeRule, createVolumeThresholdRule, createSchemaRule } from './monitor-rules.js';
 import { checkFreshness } from '../../src/monitor/freshness.js';
 import { checkVolumeAnomaly } from '../../src/monitor/volume.js';
+import { checkVolumeThreshold } from '../../src/monitor/volume-threshold.js';
 import { checkSchemaChanges } from '../../src/monitor/schema-changes.js';
 import type { Connector } from '../../src/types/connector.js';
 
@@ -175,6 +176,17 @@ for (const entry of CONNECTOR_REGISTRY) {
         expect(result).toHaveProperty('status');
         // First run without history returns 'ok' (pending baseline)
         expect(['ok', 'pending']).toContain(result.status);
+        expect(typeof result.rowCount).toBe('number');
+        expect(result.rowCount).toBeGreaterThan(0);
+      });
+
+      it('checkVolumeThreshold()', async () => {
+        if (skipIfUnavailable()) return;
+        const rule = createVolumeThresholdRule('orders');
+        const result = await checkVolumeThreshold(connector, rule);
+
+        expect(result).toHaveProperty('status');
+        expect(result.status).toBe('ok');
         expect(typeof result.rowCount).toBe('number');
         expect(result.rowCount).toBeGreaterThan(0);
       });

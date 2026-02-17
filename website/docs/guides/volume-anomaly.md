@@ -75,6 +75,10 @@ await metadataStorage.close();
 - A minimum of 3 historical data points is required before anomaly detection triggers
 - Execution history is automatically pruned (last 1000 executions per rule)
 
+## Simple alternative: volume thresholds
+
+If you don't need historical baseline comparison and just want to alert when a table's row count is outside a fixed range, use [`checkVolumeThreshold`](/docs/guides/volume-threshold) instead. It requires no metadata storage and no baseline building period.
+
 ## Use cases
 
 - Detecting pipeline failures that result in zero or partial loads

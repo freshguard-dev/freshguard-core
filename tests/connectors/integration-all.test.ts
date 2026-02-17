@@ -94,8 +94,11 @@ for (const entry of CONNECTOR_REGISTRY) {
         const tables = await connector.listTables();
         expect(tables).toBeInstanceOf(Array);
         expect(tables.length).toBeGreaterThanOrEqual(EXPECTED_TABLES.length);
+        // Some connectors (e.g. BigQuery) return dataset-qualified names like
+        // "dataset.table" — extract just the last segment for comparison.
+        const bareNames = tables.map((n) => n.split('.').pop()!.toLowerCase());
         for (const t of EXPECTED_TABLES) {
-          expect(tables.map((n) => n.toLowerCase())).toContain(t);
+          expect(bareNames).toContain(t);
         }
       });
 

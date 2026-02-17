@@ -64,5 +64,16 @@ export function rowString(value: unknown): string {
   if (typeof value === 'object' && 'value' in value && typeof (value as Record<string, unknown>).value === 'string') {
     return (value as Record<string, unknown>).value as string;
   }
-  return JSON.stringify(value);
+  // Handle DuckDB timestamp/date wrapper objects (DuckDBTimestampValue, etc.)
+  // which carry a `micros` bigint property representing microseconds since epoch
+  if (typeof value === 'object' && 'micros' in value && typeof (value as Record<string, unknown>).micros === 'bigint') {
+    const micros = (value as Record<string, unknown>).micros as bigint;
+    return new Date(Number(micros / 1000n)).toISOString();
+  }
+  // Fallback: use String() to avoid JSON.stringify failures with BigInt
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value as unknown);
+  }
 }

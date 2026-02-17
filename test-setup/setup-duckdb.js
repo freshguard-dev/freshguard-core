@@ -28,26 +28,13 @@ async function setupDuckDB() {
 
     // Create or connect to the database
     console.log(`Creating DuckDB database at: ${DUCKDB_TEST_PATH}`);
-    const instance = DuckDBInstance.create(DUCKDB_TEST_PATH);
-    const connection = instance.connect();
+    const instance = await DuckDBInstance.create(DUCKDB_TEST_PATH);
+    const connection = await instance.connect();
 
     console.log('Running initialization SQL...');
 
-    // Split SQL by semicolons and execute each statement
-    const statements = initSQL
-      .split(';')
-      .map(stmt => stmt.trim())
-      .filter(stmt => stmt.length > 0);
-
-    for (const statement of statements) {
-      try {
-        connection.run(statement);
-        console.log(`✓ Executed: ${statement.substring(0, 50)}...`);
-      } catch (error) {
-        console.error(`✗ Failed to execute statement: ${error.message}`);
-        console.error(`Statement: ${statement.substring(0, 100)}...`);
-      }
-    }
+    // DuckDB supports multiple statements in a single run() call
+    await connection.run(initSQL);
 
     // Verify the setup by counting records
     console.log('\nVerifying database setup...');
@@ -55,9 +42,9 @@ async function setupDuckDB() {
 
     for (const table of tables) {
       try {
-        const reader = connection.runAndReadAll(`SELECT COUNT(*) as count FROM ${table}`);
-        const rows = reader.getRowObjects();
-        const count = rows[0].count;
+        const reader = await connection.runAndReadAll(`SELECT COUNT(*) as count FROM ${table}`);
+        const rows = reader.getRows();
+        const count = rows[0][0];
         console.log(`✓ ${table}: ${count} records`);
       } catch (error) {
         console.error(`✗ Failed to count ${table}: ${error.message}`);
@@ -65,7 +52,7 @@ async function setupDuckDB() {
     }
 
     connection.closeSync();
-    instance.close();
+    instance.closeSync();
 
     console.log(`\n✅ DuckDB test database setup complete: ${DUCKDB_TEST_PATH}`);
 

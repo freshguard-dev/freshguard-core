@@ -4,6 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { rowString } from '../src/types/driver-results.js';
 import { PostgresConnector } from '../src/connectors/postgres.js';
 import { DuckDBConnector } from '../src/connectors/duckdb.js';
 import { BigQueryConnector } from '../src/connectors/bigquery.js';
@@ -370,6 +371,42 @@ describe('BigQueryConnector Security', () => {
     const connector = new BigQueryConnector(validBigQueryConfig);
     expect(connector.setDataset).toBeDefined();
     expect(connector.getDataset).toBeDefined();
+  });
+});
+
+describe('rowString – BigQuery date wrapper objects', () => {
+  it('should extract .value from BigQueryDate-like objects', () => {
+    const bqDate = { value: '2024-01-15' };
+    expect(rowString(bqDate)).toBe('2024-01-15');
+  });
+
+  it('should extract .value from BigQueryTimestamp-like objects', () => {
+    const bqTimestamp = { value: '2024-01-15T12:00:00.000Z' };
+    expect(rowString(bqTimestamp)).toBe('2024-01-15T12:00:00.000Z');
+  });
+
+  it('should extract .value from BigQueryDatetime-like objects', () => {
+    const bqDatetime = { value: '2024-01-15 12:00:00' };
+    expect(rowString(bqDatetime)).toBe('2024-01-15 12:00:00');
+  });
+
+  it('should not extract .value when it is not a string', () => {
+    const obj = { value: 42 };
+    expect(rowString(obj)).toBe('{"value":42}');
+  });
+
+  it('should still handle plain strings and dates', () => {
+    expect(rowString('hello')).toBe('hello');
+    expect(rowString(null)).toBe('');
+    expect(rowString(123)).toBe('123');
+    const d = new Date('2024-01-15T00:00:00.000Z');
+    expect(rowString(d)).toBe('2024-01-15T00:00:00.000Z');
+  });
+
+  it('should produce a parseable date from BigQueryDate .value', () => {
+    const bqDate = { value: '2024-01-15' };
+    const parsed = new Date(rowString(bqDate));
+    expect(parsed.getTime()).not.toBeNaN();
   });
 });
 

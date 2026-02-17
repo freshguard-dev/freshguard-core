@@ -180,13 +180,13 @@ export const DEFAULT_SECURITY_CONFIG: SecurityConfig = {
     //   backticks: `schema.table` (MySQL, BigQuery)
     //   brackets:  [schema.table] (MSSQL, Azure SQL, Synapse)
     //   quotes:    "schema.table" (PostgreSQL, Redshift)
-    /^SELECT\s+COUNT\(\*\)(?:\s+as\s+\w+)?\s+FROM\s+(?:[`"][\w.]+[`"]|\[[\w.]+\]|\w+(?:\.\w+)*)$/is,                    // getRowCount
-    /^SELECT\s+MAX\((?:[`"]\w+[`"]|\[\w+\]|\w+)\)(?:\s+as\s+\w+)?\s+FROM\s+(?:[`"][\w.]+[`"]|\[[\w.]+\]|\w+(?:\.\w+)*)$/is,           // getMaxTimestamp
-    /^SELECT\s+MIN\((?:[`"]\w+[`"]|\[\w+\]|\w+)\)(?:\s+as\s+\w+)?\s+FROM\s+(?:[`"][\w.]+[`"]|\[[\w.]+\]|\w+(?:\.\w+)*)$/is,           // getMinTimestamp
+    /^SELECT\s+COUNT\(\*\)(?:\s+as\s+\w+)?\s+FROM\s+(?:[`"][\w.-]+[`"]|\[[\w.]+\]|\w+(?:\.\w+)*)$/is,                    // getRowCount
+    /^SELECT\s+MAX\((?:[`"]\w+[`"]|\[\w+\]|\w+)\)(?:\s+as\s+\w+)?\s+FROM\s+(?:[`"][\w.-]+[`"]|\[[\w.]+\]|\w+(?:\.\w+)*)$/is,           // getMaxTimestamp
+    /^SELECT\s+MIN\((?:[`"]\w+[`"]|\[\w+\]|\w+)\)(?:\s+as\s+\w+)?\s+FROM\s+(?:[`"][\w.-]+[`"]|\[[\w.]+\]|\w+(?:\.\w+)*)$/is,           // getMinTimestamp
 
     // Schema introspection queries
-    /^DESCRIBE\s+(?:[`"][\w.]+[`"]|\[[\w.]+\]|\w+(?:\.\w+)*)$/i,                                              // DESCRIBE [schema.]table
-    /^SHOW\s+(TABLES|COLUMNS)(?:\s+FROM\s+(?:[`"][\w.]+[`"]|\[[\w.]+\]|\w+(?:\.\w+)*))?$/i,                   // SHOW TABLES/COLUMNS
+    /^DESCRIBE\s+(?:[`"][\w.-]+[`"]|\[[\w.]+\]|\w+(?:\.\w+)*)$/i,                                              // DESCRIBE [schema.]table
+    /^SHOW\s+(TABLES|COLUMNS)(?:\s+FROM\s+(?:[`"][\w.-]+[`"]|\[[\w.]+\]|\w+(?:\.\w+)*))?$/i,                   // SHOW TABLES/COLUMNS
 
     // Information schema queries (cross-database compatibility)
     /^SELECT\s+.+?\s+FROM\s+information_schema\.\w+/is,                                  // PostgreSQL/MySQL information_schema

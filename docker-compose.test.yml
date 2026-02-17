@@ -54,6 +54,43 @@ services:
       timeout: 5s
       retries: 5
 
+  # Microsoft SQL Server test database for MSSQL connector
+  mssql_test:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "FreshGuard_Test1!"
+      MSSQL_PID: Developer
+    ports:
+      - "1434:1433"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'FreshGuard_Test1!' -C -Q 'SELECT 1' || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'FreshGuard_Test1!' -Q 'SELECT 1'"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # Init container that creates the test database and seeds data
+  mssql_init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    depends_on:
+      mssql_test:
+        condition: service_healthy
+    volumes:
+      - ./test-setup/init-mssql.sql:/init-mssql.sql:ro
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        # Create the database first, then run the init script
+        for tool in /opt/mssql-tools18/bin/sqlcmd /opt/mssql-tools/bin/sqlcmd; do
+          if [ -f "$$tool" ]; then SQLCMD="$$tool"; break; fi
+        done
+        TRUST=""
+        if [[ "$$SQLCMD" == *"tools18"* ]]; then TRUST="-C"; fi
+        $$SQLCMD -S mssql_test -U sa -P 'FreshGuard_Test1!' $$TRUST -Q "IF DB_ID('freshguard_test') IS NULL CREATE DATABASE freshguard_test"
+        sleep 2
+        $$SQLCMD -S mssql_test -U sa -P 'FreshGuard_Test1!' $$TRUST -d freshguard_test -i /init-mssql.sql
+
   # redis_test:
   #   image: redis:7-alpine
   #   ports:

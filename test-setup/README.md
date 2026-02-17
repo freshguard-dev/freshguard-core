@@ -157,16 +157,16 @@ All `updated_at` values are relative to insert time (e.g. `CURRENT_TIMESTAMP - I
 
 ### Dialect Differences
 
-| Feature | PostgreSQL | MySQL | Redshift (sim) | MSSQL | DuckDB |
-|---------|-----------|-------|----------------|-------|--------|
-| Auto-increment | `SERIAL` | `AUTO_INCREMENT` | `IDENTITY(1,1)` | `IDENTITY(1,1)` | `INTEGER` |
-| Timestamp type | `TIMESTAMP` | `TIMESTAMP` | `TIMESTAMP` | `DATETIME2` | `TIMESTAMP` |
-| Current time | `CURRENT_TIMESTAMP` | `NOW()` | `CURRENT_TIMESTAMP` | `GETDATE()` | `CURRENT_TIMESTAMP` |
-| IP address | `INET` | `VARCHAR(45)` | `VARCHAR(45)` | `NVARCHAR(45)` | `VARCHAR(45)` |
-| Long text | `TEXT` | `TEXT` | `VARCHAR(MAX)` | `NVARCHAR(MAX)` | `VARCHAR` |
-| Foreign keys | Yes | Yes | No | Yes | No |
-| Idempotent create | `IF NOT EXISTS` | `IF NOT EXISTS` | `IF NOT EXISTS` | `IF OBJECT_ID IS NULL` | `IF NOT EXISTS` |
-| Schema | `public` | (database) | `public` | `dbo` | `main` |
+| Feature | PostgreSQL | MySQL | Redshift (sim) | MSSQL | DuckDB | BigQuery | Snowflake | Azure SQL | Synapse |
+|---------|-----------|-------|----------------|-------|--------|----------|-----------|-----------|---------|
+| Auto-increment | `SERIAL` | `AUTO_INCREMENT` | `IDENTITY(1,1)` | `IDENTITY(1,1)` | `INTEGER` | N/A (explicit IDs) | `AUTOINCREMENT` | `IDENTITY(1,1)` | N/A (explicit IDs) |
+| Timestamp type | `TIMESTAMP` | `TIMESTAMP` | `TIMESTAMP` | `DATETIME2` | `TIMESTAMP` | `TIMESTAMP` | `TIMESTAMP_NTZ` | `DATETIME2` | `DATETIME2` |
+| Current time | `CURRENT_TIMESTAMP` | `NOW()` | `CURRENT_TIMESTAMP` | `GETDATE()` | `CURRENT_TIMESTAMP` | `CURRENT_TIMESTAMP()` | `CURRENT_TIMESTAMP()` | `GETDATE()` | `GETDATE()` |
+| IP address | `INET` | `VARCHAR(45)` | `VARCHAR(45)` | `NVARCHAR(45)` | `VARCHAR(45)` | `STRING` | `VARCHAR(45)` | `NVARCHAR(45)` | `NVARCHAR(45)` |
+| Long text | `TEXT` | `TEXT` | `VARCHAR(MAX)` | `NVARCHAR(MAX)` | `VARCHAR` | `STRING` | `VARCHAR(16M)` | `NVARCHAR(MAX)` | `NVARCHAR(4000)` |
+| Foreign keys | Yes | Yes | No | Yes | No | No | No | Yes | No |
+| Idempotent create | `IF NOT EXISTS` | `IF NOT EXISTS` | `IF NOT EXISTS` | `IF OBJECT_ID IS NULL` | `IF NOT EXISTS` | `CREATE OR REPLACE` | `CREATE OR REPLACE` | `IF OBJECT_ID IS NULL` | `IF OBJECT_ID IS NULL` |
+| Schema | `public` | (database) | `public` | `dbo` | `main` | dataset | `PUBLIC` | `dbo` | `dbo` |
 
 ## What the Tests Cover
 
@@ -210,6 +210,10 @@ test-setup/
 ├── init-redshift.sql      # Redshift (PostgreSQL-simulated) schema and test data
 ├── init-mssql.sql         # SQL Server (T-SQL) schema and test data
 ├── init-duckdb.sql        # DuckDB schema and test data
+├── init-bigquery.sql      # BigQuery schema and test data (run in BQ console)
+├── init-snowflake.sql     # Snowflake schema and test data (run in Snowsight/SnowSQL)
+├── init-azure-sql.sql     # Azure SQL Database schema and test data
+├── init-synapse.sql       # Azure Synapse Analytics schema and test data
 └── setup-duckdb.js        # Node.js script to create DuckDB file database
 ```
 

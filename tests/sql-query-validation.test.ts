@@ -185,6 +185,11 @@ describe('SQL Query Generation Validation', () => {
         'SELECT MAX(col) as max_date FROM `dbt_mandersson.fct_orders`',
         'SELECT MIN(col) as min_date FROM `my_dataset.my_table`',
 
+        // BigQuery project IDs with hyphens (issue #64)
+        'SELECT COUNT(*) as count FROM `my-gcp-project.dataset.my_table`',
+        'SELECT MAX(col) as max_date FROM `my-project-123.analytics.events`',
+        'SELECT MIN(col) as min_date FROM `org-data-prod.warehouse.orders`',
+
         // Double-quote-quoted dotted names (PostgreSQL, Redshift)
         'SELECT COUNT(*) as count FROM "schema.table"',
         'SELECT MAX(col) as max_date FROM "public.orders"',

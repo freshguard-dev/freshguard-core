@@ -13,7 +13,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
-import { CONNECTOR_REGISTRY, type ConnectorRegistryEntry } from './connector-registry.js';
+import { CONNECTOR_REGISTRY } from './connector-registry.js';
 import { createFreshnessRule, createVolumeRule, createSchemaRule } from './monitor-rules.js';
 import { checkFreshness } from '../../src/monitor/freshness.js';
 import { checkVolumeAnomaly } from '../../src/monitor/volume.js';

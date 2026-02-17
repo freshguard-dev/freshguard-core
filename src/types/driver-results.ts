@@ -59,5 +59,10 @@ export function rowString(value: unknown): string {
   if (value == null) return '';
   if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return String(value);
   if (value instanceof Date) return value.toISOString();
+  // Handle BigQuery date/time wrapper objects (BigQueryDate, BigQueryTimestamp,
+  // BigQueryDatetime) which carry a `.value` string property (#59)
+  if (typeof value === 'object' && 'value' in value && typeof (value as Record<string, unknown>).value === 'string') {
+    return (value as Record<string, unknown>).value as string;
+  }
   return JSON.stringify(value);
 }

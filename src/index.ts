@@ -31,7 +31,7 @@
  */
 
 // Monitoring functions
-export { checkFreshness, checkVolumeAnomaly, checkSchemaChanges } from './monitor/index.js';
+export { checkFreshness, checkVolumeAnomaly, checkVolumeThreshold, checkSchemaChanges } from './monitor/index.js';
 
 // Database connectors
 export { PostgresConnector, DuckDBConnector, BigQueryConnector, SnowflakeConnector, MySQLConnector, RedshiftConnector, MSSQLConnector, AzureSQLConnector, SynapseConnector } from './connectors/index.js';

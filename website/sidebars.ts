@@ -18,6 +18,7 @@ const sidebars: SidebarsConfig = {
       items: [
         'guides/freshness-monitoring',
         'guides/volume-anomaly',
+        'guides/volume-threshold',
         'guides/schema-changes',
         'guides/connectors',
         'guides/metadata-storage',

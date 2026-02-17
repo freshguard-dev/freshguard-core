@@ -7,6 +7,7 @@
  * |------------------------|----------------------------------------------|
  * | `checkFreshness`       | Stale data — table not updated within SLA     |
  * | `checkVolumeAnomaly`   | Row-count spikes or drops vs. historical baseline |
+ * | `checkVolumeThreshold` | Row count outside static min/max bounds       |
  * | `checkSchemaChanges`   | Added, removed, or modified columns           |
  *
  * All three accept a {@link Connector} and a {@link MonitoringRule}, returning
@@ -30,5 +31,6 @@
 
 export { checkFreshness } from './freshness.js';
 export { checkVolumeAnomaly } from './volume.js';
+export { checkVolumeThreshold } from './volume-threshold.js';
 export { checkSchemaChanges } from './schema-changes.js';
 export { SchemaBaselineManager, SchemaComparer } from './schema-baseline.js';

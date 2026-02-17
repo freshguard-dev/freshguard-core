@@ -104,7 +104,37 @@ if (result.status === 'alert') {
 }
 ```
 
-### 3. Detect schema changes
+### 3. Check volume thresholds (simple min/max)
+
+Alert when a table's row count falls below a minimum or exceeds a maximum — no historical baseline needed.
+
+```typescript
+import { checkVolumeThreshold, PostgresConnector } from '@freshguard/freshguard-core';
+
+const connector = new PostgresConnector({ /* ... */ });
+
+const rule = {
+  id: 'orders-threshold',
+  sourceId: 'prod_pg',
+  name: 'Orders Threshold',
+  tableName: 'orders',
+  ruleType: 'volume_threshold' as const,
+  minRowThreshold: 100,       // alert if fewer than 100 rows
+  maxRowThreshold: 10_000_000, // alert if more than 10M rows
+  checkIntervalMinutes: 60,
+  isActive: true,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+
+const result = await checkVolumeThreshold(connector, rule);
+
+if (result.status === 'alert') {
+  console.log(`Threshold breach: ${result.error}`);
+}
+```
+
+### 4. Detect schema changes
 
 Alert when columns are added, removed, or modified.
 

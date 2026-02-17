@@ -85,6 +85,8 @@ if (result.status === 'alert') {
 await metadataStorage.close();
 ```
 
+**Simpler alternative:** If you just need static min/max row count alerts (no baseline), use `checkVolumeThreshold` with `ruleType: 'volume_threshold'` and `minRowThreshold` / `maxRowThreshold`. See the [volume threshold guide](/docs/guides/volume-threshold).
+
 ## 5. Add schema monitoring (optional)
 
 ```typescript

@@ -52,6 +52,7 @@ if (result.status === 'alert') {
 
 - **Freshness monitoring** — Alert when a table hasn't been updated within a tolerance window
 - **Volume anomaly detection** — Alert when row counts deviate from a calculated baseline
+- **Volume threshold monitoring** — Alert when row counts fall below a minimum or exceed a maximum
 - **Schema change detection** — Alert when columns are added, removed, or modified
 
 ## API at a glance
@@ -62,6 +63,7 @@ if (result.status === 'alert') {
 |---|---|
 | `checkFreshness(connector, rule)` | Returns `'alert'` when `MAX(timestampColumn)` exceeds `toleranceMinutes` |
 | `checkVolumeAnomaly(connector, rule)` | Returns `'alert'` when current row count deviates from the historical baseline |
+| `checkVolumeThreshold(connector, rule)` | Returns `'alert'` when row count is below `minRowThreshold` or above `maxRowThreshold` |
 | `checkSchemaChanges(connector, rule)` | Returns `'alert'` when columns are added, removed, or modified |
 
 ### Connectors

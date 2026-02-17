@@ -12,7 +12,7 @@
 // ==============================================
 
 export type DataSourceType = 'postgres' | 'duckdb' | 'bigquery' | 'snowflake' | 'mysql' | 'redshift' | 'mssql' | 'azure_sql' | 'synapse';
-export type RuleType = 'freshness' | 'volume_anomaly' | 'schema_change' | 'custom_sql';
+export type RuleType = 'freshness' | 'volume_anomaly' | 'volume_threshold' | 'schema_change' | 'custom_sql';
 export type CheckStatus = 'ok' | 'alert' | 'failed' | 'pending';
 export type AlertDestinationType = 'slack' | 'email' | 'pagerduty' | 'webhook';
 export type SeverityLevel = 'low' | 'medium' | 'high' | 'critical';
@@ -115,6 +115,10 @@ export interface MonitoringRule {
     trimmedMeanPercentile?: number; // For trimmed_mean method (0-50)
     seasonalAdjustment?: boolean; // Account for day-of-week patterns
   };
+
+  // Volume threshold settings (simple min/max row count)
+  minRowThreshold?: number;
+  maxRowThreshold?: number;
 
   // Schema change settings
   trackColumnChanges?: boolean;

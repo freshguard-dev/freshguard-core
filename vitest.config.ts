@@ -5,6 +5,7 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['tests/**/*.test.ts', 'src/**/*.test.ts'],
+    exclude: ['tests/connectors/integration-all.test.ts', 'node_modules/**'],
     // Increase timeout for integration tests with external services
     testTimeout: 30000,
     hookTimeout: 10000,

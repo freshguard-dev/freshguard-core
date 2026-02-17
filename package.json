@@ -43,6 +43,8 @@
     "test:db:setup": "node test-setup/setup-duckdb.js",
     "test:db:setup:all": "pnpm test:services:start && sleep 15 && pnpm test:db:setup",
     "test:integration:full": "pnpm test:db:setup:all && pnpm test:integration:improved",
+    "test:connectors": "vitest --run --config vitest.connectors.config.ts tests/connectors/integration-all.test.ts",
+    "test:connectors:docker": "pnpm test:services:start && sleep 15 && pnpm test:db:setup && pnpm test:connectors",
     "test:full": "pnpm test:services:start && sleep 10 && pnpm test:coverage && pnpm test:services:stop",
     "test:full:complete": "pnpm test:db:setup:all && pnpm test:coverage && pnpm test:services:stop",
     "clean": "rm -rf dist",

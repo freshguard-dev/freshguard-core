@@ -591,6 +591,32 @@ export class BigQueryConnector extends BaseConnector {
   }
 
   /**
+   * Override escapeIdentifier for BigQuery.
+   * Backtick-quotes identifiers that contain dots or hyphens (fully-qualified
+   * BigQuery table references like project.dataset.table).
+   * Plain column names are handled by the base implementation.
+   */
+  protected override escapeIdentifier(identifier: string): string {
+    if (identifier.includes('.') || identifier.includes('-')) {
+      // Already qualified table reference — backtick-quote it
+      return `\`${identifier}\``;
+    }
+    return super.escapeIdentifier(identifier);
+  }
+
+  async getRowCount(table: string): Promise<number> {
+    return super.getRowCount(this.parseTableName(table));
+  }
+
+  async getMaxTimestamp(table: string, column: string): Promise<Date | null> {
+    return super.getMaxTimestamp(this.parseTableName(table), column);
+  }
+
+  async getMinTimestamp(table: string, column: string): Promise<Date | null> {
+    return super.getMinTimestamp(this.parseTableName(table), column);
+  }
+
+  /**
    * Parse and validate table name for BigQuery
    */
   private parseTableName(tableName: string): string {
@@ -612,7 +638,10 @@ export class BigQueryConnector extends BaseConnector {
       // dataset.table format - prepend project
       return `${this.projectId}.${tableName}`;
     } else if (parts.length === 1) {
-      // Just table name - need dataset
+      // Just table name - auto-qualify with configured dataset if available
+      if (this.dataset) {
+        return `${this.projectId}.${this.dataset}.${tableName}`;
+      }
       throw new QueryError('Table name must include dataset (format: dataset.table)', 'invalid_table_name');
     } else {
       throw new QueryError('Invalid table name format', 'invalid_table_name');

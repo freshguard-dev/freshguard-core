@@ -40,7 +40,8 @@ export const TEST_SECURITY_CONFIG = {
     /^SELECT MIN\(/i,
     /^DESCRIBE /i,
     /^SHOW /i,
-    /SELECT .+ FROM information_schema\./is,
+    /SELECT[\s\S]+FROM\s+information_schema\./is,
+    /^SELECT[\s\S]+?FROM[\s\S]*`[^`]*\.INFORMATION_SCHEMA\.\w+`/is,
     /^SELECT table_name\s+FROM information_schema\.tables/is,
     /^SELECT .+ FROM .+ WHERE/is,
     /^SELECT .+ FROM .+ ORDER BY/is,
@@ -143,8 +144,8 @@ export const CONNECTOR_REGISTRY: ConnectorRegistryEntry[] = [
         },
         { ...TEST_SECURITY_CONFIG, requireSSL: true },
       ),
-    isAvailable: () => envDefined('TEST_BQ_PROJECT', 'TEST_BQ_KEY'),
-    skipReason: () => 'BigQuery env vars not set (TEST_BQ_PROJECT, TEST_BQ_KEY)',
+    isAvailable: () => envDefined('TEST_BQ_PROJECT', 'TEST_BQ_KEY', 'TEST_BQ_DATASET'),
+    skipReason: () => 'BigQuery env vars not set (TEST_BQ_PROJECT, TEST_BQ_KEY, TEST_BQ_DATASET)',
   },
 
   {

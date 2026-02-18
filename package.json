@@ -1,6 +1,6 @@
 {
   "name": "@freshguard/freshguard-core",
-  "version": "0.18.0",
+  "version": "0.18.1",
   "description": "Open source data freshness monitoring engine",
   "type": "module",
   "main": "./dist/index.js",
@@ -93,7 +93,7 @@
   },
   "pnpm": {
     "overrides": {
-      "fast-xml-parser": "5.3.4",
+      "fast-xml-parser": "5.3.6",
       "markdown-it": ">=14.1.1",
       "qs": ">=6.14.2",
       "rimraf": "^6.0.0"

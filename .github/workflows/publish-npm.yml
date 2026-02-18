@@ -521,7 +521,7 @@ jobs:
           echo '{"name":"test-install","version":"1.0.0","type":"module"}' > package.json
 
           echo "Testing published packages..."
-          pnpm install --ignore-scripts @freshguard/freshguard-core@${{ needs.publish.outputs.version }}
+          npm install --ignore-scripts @freshguard/freshguard-core@${{ needs.publish.outputs.version }}
 
           node -e "
             import('@freshguard/freshguard-core').then(({ checkFreshness, createDatabase }) => {

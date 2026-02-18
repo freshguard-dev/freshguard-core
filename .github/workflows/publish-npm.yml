@@ -63,18 +63,30 @@ jobs:
           echo "🔍 Checking production dependencies..."
           pnpm audit --audit-level moderate --prod
 
-          # Check all dependencies (including dev) - may fail due to pnpm ZIP slip vulnerability
+          # Check all dependencies (including dev).
+          # Known acceptable dev/docs-only advisories that cannot be fixed upstream:
+          #   GHSA-6pfh-p556-v868 — pnpm ZIP slip (dev dep, awaiting stable upstream fix)
+          #   GHSA-2g4f-4pwh-qvx6 — ajv ReDoS via $data option (eslint/webpack/docusaurus dev+docs
+          #                          deps only; $data option is never enabled in any of these tools;
+          #                          not present in the published npm package)
+          KNOWN_OK="GHSA-6pfh-p556-v868 GHSA-2g4f-4pwh-qvx6"
           echo "🔍 Checking all dependencies (including dev)..."
-          pnpm audit --audit-level moderate || {
-            echo "⚠️ Audit found issues. Checking if they're only the known pnpm ZIP slip vulnerability..."
-            if pnpm audit --audit-level moderate 2>&1 | grep -q "GHSA-6pfh-p556-v868"; then
-              echo "✅ Only known pnpm ZIP slip vulnerability found (waiting for stable fix)"
-              echo "   Production dependencies are clean ✅"
-            else
-              echo "❌ Other vulnerabilities found that need attention"
-              pnpm audit --audit-level moderate
+          pnpm audit --audit-level moderate > /tmp/audit-output.txt 2>&1 || {
+            echo "⚠️ Audit found issues. Checking against known acceptable list..."
+            FOUND=$(grep -oE "GHSA-[a-z0-9-]+" /tmp/audit-output.txt | sort -u)
+            UNKNOWN_FOUND=false
+            for id in $FOUND; do
+              if ! echo "$KNOWN_OK" | grep -q "$id"; then
+                echo "❌ Unknown vulnerability: $id"
+                UNKNOWN_FOUND=true
+              fi
+            done
+            if [ "$UNKNOWN_FOUND" = "true" ]; then
+              cat /tmp/audit-output.txt
               exit 1
             fi
+            echo "✅ All issues are known acceptable dev/docs-only vulnerabilities (not in published package)"
+            echo "   Production dependencies are clean ✅"
           }
 
       - name: Install security scanning tools

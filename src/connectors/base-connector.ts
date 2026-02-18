@@ -580,7 +580,7 @@ export abstract class BaseConnector implements Connector {
               throw new Error('No result returned');
             }
 
-            const count = parseInt(rowString(result[0].count ?? '0'), 10);
+            const count = parseInt(rowString(result[0].count ?? result[0].COUNT ?? '0'), 10);
             const finalCount = isNaN(count) ? 0 : count;
 
             if (this.enableDetailedLogging) {
@@ -635,7 +635,7 @@ export abstract class BaseConnector implements Connector {
               this.queryTimeout
             );
 
-            const maxDate = result?.[0]?.max_date;
+            const maxDate = result?.[0]?.max_date ?? result?.[0]?.MAX_DATE;
             if (!result || result.length === 0 || !maxDate) {
               if (this.enableDetailedLogging) {
                 this.logger.debug('No timestamp found', {
@@ -694,7 +694,7 @@ export abstract class BaseConnector implements Connector {
         this.queryTimeout
       );
 
-      const minDate = result?.[0]?.min_date;
+      const minDate = result?.[0]?.min_date ?? result?.[0]?.MIN_DATE;
       if (!result || result.length === 0 || !minDate) {
         if (this.enableDetailedLogging) {
           this.logger.debug('No minimum timestamp found', {

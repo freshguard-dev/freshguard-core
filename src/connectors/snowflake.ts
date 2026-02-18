@@ -103,7 +103,7 @@ export class SnowflakeConnector extends BaseConnector {
    * Extract Snowflake account from host
    */
   private extractAccount(host: string): string {
-    const hostMatch = /^([^.]+)\.snowflakecomputing\.com$/.exec(host);
+    const hostMatch = /^(.+)\.snowflakecomputing\.com$/.exec(host);
     if (hostMatch?.[1]) {
       return hostMatch[1];
     }

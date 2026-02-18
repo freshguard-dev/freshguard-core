@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.1] - 2026-02-18
+
+### Security
+- Bump `fast-xml-parser` override from 5.3.4 → 5.3.6 to fix high-severity DoS vulnerability via DOCTYPE entity expansion (GHSA-jmr7-xgp7-cmfj)
+
 ## [0.18.0] - 2026-02-17
 
 ### Added

@@ -1,8 +1,15 @@
 -- DuckDB initialization script for integration tests
 -- Creates test tables and inserts realistic test data
+-- Idempotent: drops and recreates tables so timestamps are always fresh
+
+DROP TABLE IF EXISTS user_sessions;
+DROP TABLE IF EXISTS daily_summary;
+DROP TABLE IF EXISTS orders;
+DROP TABLE IF EXISTS products;
+DROP TABLE IF EXISTS customers;
 
 -- Create customers table
-CREATE TABLE IF NOT EXISTS customers (
+CREATE TABLE customers (
     id INTEGER PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
@@ -11,7 +18,7 @@ CREATE TABLE IF NOT EXISTS customers (
 );
 
 -- Create products table
-CREATE TABLE IF NOT EXISTS products (
+CREATE TABLE products (
     id INTEGER PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     price DECIMAL(10, 2) NOT NULL,
@@ -21,7 +28,7 @@ CREATE TABLE IF NOT EXISTS products (
 );
 
 -- Create orders table
-CREATE TABLE IF NOT EXISTS orders (
+CREATE TABLE orders (
     id INTEGER PRIMARY KEY,
     customer_id INTEGER,
     product_id INTEGER,
@@ -33,7 +40,7 @@ CREATE TABLE IF NOT EXISTS orders (
 );
 
 -- Create daily_summary table
-CREATE TABLE IF NOT EXISTS daily_summary (
+CREATE TABLE daily_summary (
     id INTEGER PRIMARY KEY,
     summary_date DATE NOT NULL,
     total_orders INTEGER NOT NULL DEFAULT 0,
@@ -44,7 +51,7 @@ CREATE TABLE IF NOT EXISTS daily_summary (
 );
 
 -- Create user_sessions table
-CREATE TABLE IF NOT EXISTS user_sessions (
+CREATE TABLE user_sessions (
     id INTEGER PRIMARY KEY,
     user_id INTEGER NOT NULL,
     session_token VARCHAR(255) UNIQUE NOT NULL,
@@ -56,7 +63,7 @@ CREATE TABLE IF NOT EXISTS user_sessions (
 );
 
 -- Insert test customers
-INSERT OR IGNORE INTO customers (id, name, email, created_at, updated_at) VALUES
+INSERT INTO customers (id, name, email, created_at, updated_at) VALUES
 (1, 'John Doe', 'john@example.com', CURRENT_TIMESTAMP - INTERVAL 2 DAYS, CURRENT_TIMESTAMP - INTERVAL 1 HOUR),
 (2, 'Jane Smith', 'jane@example.com', CURRENT_TIMESTAMP - INTERVAL 1 DAY, CURRENT_TIMESTAMP - INTERVAL 2 HOURS),
 (3, 'Bob Wilson', 'bob@example.com', CURRENT_TIMESTAMP - INTERVAL 3 HOURS, CURRENT_TIMESTAMP - INTERVAL 1 HOUR),
@@ -64,7 +71,7 @@ INSERT OR IGNORE INTO customers (id, name, email, created_at, updated_at) VALUES
 (5, 'Charlie Brown', 'charlie@example.com', CURRENT_TIMESTAMP - INTERVAL 4 HOURS, CURRENT_TIMESTAMP - INTERVAL 15 MINUTES);
 
 -- Insert test products
-INSERT OR IGNORE INTO products (id, name, price, category, created_at, updated_at) VALUES
+INSERT INTO products (id, name, price, category, created_at, updated_at) VALUES
 (1, 'Laptop', 999.99, 'Electronics', CURRENT_TIMESTAMP - INTERVAL 1 DAY, CURRENT_TIMESTAMP - INTERVAL 2 HOURS),
 (2, 'Mouse', 29.99, 'Electronics', CURRENT_TIMESTAMP - INTERVAL 2 DAYS, CURRENT_TIMESTAMP - INTERVAL 1 HOUR),
 (3, 'Keyboard', 79.99, 'Electronics', CURRENT_TIMESTAMP - INTERVAL 1 DAY, CURRENT_TIMESTAMP - INTERVAL 30 MINUTES),
@@ -72,7 +79,7 @@ INSERT OR IGNORE INTO products (id, name, price, category, created_at, updated_a
 (5, 'Webcam', 89.99, 'Electronics', CURRENT_TIMESTAMP - INTERVAL 2 DAYS, CURRENT_TIMESTAMP - INTERVAL 45 MINUTES);
 
 -- Insert test orders with recent timestamps
-INSERT OR IGNORE INTO orders (id, customer_id, product_id, quantity, total_amount, status, order_date, updated_at) VALUES
+INSERT INTO orders (id, customer_id, product_id, quantity, total_amount, status, order_date, updated_at) VALUES
 (1, 1, 1, 1, 999.99, 'completed', CURRENT_TIMESTAMP - INTERVAL 2 HOURS, CURRENT_TIMESTAMP - INTERVAL 1 HOUR),
 (2, 2, 2, 2, 59.98, 'pending', CURRENT_TIMESTAMP - INTERVAL 30 MINUTES, CURRENT_TIMESTAMP - INTERVAL 15 MINUTES),
 (3, 3, 3, 1, 79.99, 'completed', CURRENT_TIMESTAMP - INTERVAL 1 HOUR, CURRENT_TIMESTAMP - INTERVAL 30 MINUTES),
@@ -83,13 +90,13 @@ INSERT OR IGNORE INTO orders (id, customer_id, product_id, quantity, total_amoun
 (8, 3, 3, 2, 159.98, 'shipped', CURRENT_TIMESTAMP - INTERVAL 2 HOURS, CURRENT_TIMESTAMP - INTERVAL 30 MINUTES);
 
 -- Insert daily summary data
-INSERT OR IGNORE INTO daily_summary (id, summary_date, total_orders, total_revenue, unique_customers, created_at, updated_at) VALUES
+INSERT INTO daily_summary (id, summary_date, total_orders, total_revenue, unique_customers, created_at, updated_at) VALUES
 (1, CURRENT_DATE, 5, 1529.91, 4, CURRENT_TIMESTAMP - INTERVAL 1 HOUR, CURRENT_TIMESTAMP - INTERVAL 30 MINUTES),
 (2, CURRENT_DATE - INTERVAL 1 DAY, 8, 2245.88, 5, CURRENT_TIMESTAMP - INTERVAL 1 DAY, CURRENT_TIMESTAMP - INTERVAL 1 DAY + INTERVAL 1 HOUR),
 (3, CURRENT_DATE - INTERVAL 2 DAYS, 12, 3456.78, 7, CURRENT_TIMESTAMP - INTERVAL 2 DAYS, CURRENT_TIMESTAMP - INTERVAL 2 DAYS + INTERVAL 2 HOURS);
 
 -- Insert user sessions with recent activity
-INSERT OR IGNORE INTO user_sessions (id, user_id, session_token, ip_address, user_agent, started_at, last_activity, updated_at) VALUES
+INSERT INTO user_sessions (id, user_id, session_token, ip_address, user_agent, started_at, last_activity, updated_at) VALUES
 (1, 1, 'sess_abc123', '192.168.1.100', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', CURRENT_TIMESTAMP - INTERVAL 2 HOURS, CURRENT_TIMESTAMP - INTERVAL 15 MINUTES, CURRENT_TIMESTAMP - INTERVAL 15 MINUTES),
 (2, 2, 'sess_def456', '192.168.1.101', 'Mozilla/5.0 (Mac OS X) AppleWebKit/537.36', CURRENT_TIMESTAMP - INTERVAL 1 HOUR, CURRENT_TIMESTAMP - INTERVAL 30 MINUTES, CURRENT_TIMESTAMP - INTERVAL 30 MINUTES),
 (3, 3, 'sess_ghi789', '192.168.1.102', 'Mozilla/5.0 (Linux; Android 10)', CURRENT_TIMESTAMP - INTERVAL 30 MINUTES, CURRENT_TIMESTAMP - INTERVAL 10 MINUTES, CURRENT_TIMESTAMP - INTERVAL 10 MINUTES),

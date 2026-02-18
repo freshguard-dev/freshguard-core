@@ -59,35 +59,32 @@ jobs:
 
       - name: Security audit
         run: |
-          # Check production dependencies first (should be clean)
-          echo "🔍 Checking production dependencies..."
-          pnpm audit --audit-level moderate --prod
-
-          # Check all dependencies (including dev).
-          # Known acceptable dev/docs-only advisories that cannot be fixed upstream:
+          # Known acceptable advisories that cannot be fixed upstream.
+          # These are all dev or docs-only (website workspace); none ship in the published package.
           #   GHSA-6pfh-p556-v868 — pnpm ZIP slip (dev dep, awaiting stable upstream fix)
-          #   GHSA-2g4f-4pwh-qvx6 — ajv ReDoS via $data option (eslint/webpack/docusaurus dev+docs
-          #                          deps only; $data option is never enabled in any of these tools;
-          #                          not present in the published npm package)
+          #   GHSA-2g4f-4pwh-qvx6 — ajv ReDoS via $data option (eslint + website/docusaurus;
+          #                          $data option never enabled; note: pnpm --prod includes the
+          #                          website workspace's prod deps, hence ajv appears even there)
           KNOWN_OK="GHSA-6pfh-p556-v868 GHSA-2g4f-4pwh-qvx6"
-          echo "🔍 Checking all dependencies (including dev)..."
-          pnpm audit --audit-level moderate > /tmp/audit-output.txt 2>&1 || {
-            echo "⚠️ Audit found issues. Checking against known acceptable list..."
+
+          run_audit() {
+            local label="$1"; shift
+            echo "🔍 $label"
+            pnpm audit "$@" > /tmp/audit-output.txt 2>&1 && return 0
             FOUND=$(grep -oE "GHSA-[a-z0-9-]+" /tmp/audit-output.txt | sort -u)
-            UNKNOWN_FOUND=false
             for id in $FOUND; do
               if ! echo "$KNOWN_OK" | grep -q "$id"; then
                 echo "❌ Unknown vulnerability: $id"
-                UNKNOWN_FOUND=true
+                cat /tmp/audit-output.txt
+                return 1
               fi
             done
-            if [ "$UNKNOWN_FOUND" = "true" ]; then
-              cat /tmp/audit-output.txt
-              exit 1
-            fi
             echo "✅ All issues are known acceptable dev/docs-only vulnerabilities (not in published package)"
-            echo "   Production dependencies are clean ✅"
           }
+
+          run_audit "Checking production dependencies..." --audit-level moderate --prod
+          run_audit "Checking all dependencies (including dev)..." --audit-level moderate
+          echo "   Published package is clean ✅"
 
       - name: Install security scanning tools
         run: |

@@ -127,19 +127,39 @@ pnpm type-check
 ```
 
 ### Before Committing
-```bash
-# CRITICAL: Run all checks before committing
-pnpm build && pnpm type-check && pnpm test:coverage
 
-# Or shortcut:
-pnpm pre-commit
-```
+> **CRITICAL — always run this before every commit, no exceptions:**
+>
+> ```bash
+> pnpm pre-commit
+> ```
+>
+> This single command runs the full gate in order:
+>
+> | Step | Command | What it catches |
+> |------|---------|-----------------|
+> | 1 | `pnpm audit:prod` | High-severity vulnerabilities in production deps (mirrors the publish gate — **this is what broke v0.19.0**) |
+> | 2 | `pnpm lint:check` | ESLint errors and security lint rules |
+> | 3 | `pnpm build` | TypeScript compile errors |
+> | 4 | `pnpm type-check` | Type errors without emitting |
+> | 5 | `pnpm test:coverage` | Failing tests and coverage thresholds |
+>
+> **Never commit by running the steps individually** — you will miss steps.
+> If `pnpm audit:prod` fails, fix the vulnerability (add a `pnpm.overrides` pin if upstream hasn't patched yet) before committing. Do not skip or comment it out.
 
 ---
 
 ## Contributing Guidelines
 
 ### Before Submitting a PR
+
+**Step 0 — run the pre-commit gate** (if you haven't already on every commit):
+```bash
+pnpm pre-commit
+```
+See the [Before Committing](#before-committing) section for exactly what this runs.
+A PR that skips this will fail CI. The `security-audit` job in `core-test.yml` runs
+`pnpm audit --audit-level high --prod` on every PR — the same check that runs locally.
 
 1. **Check Scope**: Is this feature:
    - Core monitoring logic? ✅ YES
@@ -150,7 +170,17 @@ pnpm pre-commit
    - Authentication? ❌ NO (don't add)
    - Dashboard? ❌ NO (don't add)
 
-2. **Run Tests**:
+2. **Security audit** (already covered by `pnpm pre-commit`, listed here for visibility):
+   ```bash
+   pnpm audit:prod          # must be clean — no high-severity prod vulnerabilities
+   ```
+   If a new advisory appears against a transitive dep:
+   - Add a `pnpm.overrides` pin to the patched version in `package.json`
+   - Run `pnpm install` to regenerate the lockfile
+   - Re-run `pnpm audit:prod` to confirm it passes
+   - Document the pin in the CHANGELOG under `### Security`
+
+3. **Run Tests**:
    ```bash
    pnpm test:coverage
    ```
@@ -160,24 +190,24 @@ pnpm pre-commit
    - Branches: ≥50%
    - Statements: ≥50%
 
-3. **Type Check**:
+4. **Type Check**:
    ```bash
    pnpm type-check
    ```
    No TypeScript errors allowed.
 
-4. **Build**:
+5. **Build**:
    ```bash
    pnpm build
    ```
    Must compile successfully.
 
-5. **Format**:
+6. **Format**:
    - Use ESLint (auto-run on commit if configured)
    - Keep imports clean
    - Use descriptive variable names
 
-6. **Document**:
+7. **Document**:
    - Add JSDoc comments to public functions
    - Update README if adding new connectors
    - Add examples for new features

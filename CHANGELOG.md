@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.1] - 2026-02-19
+
+### Security
+- Force `minimatch >=10.2.1` via `pnpm.overrides` to fix ReDoS vulnerability (GHSA-3ppc-4f35-3m26) pulled in transitively through `@google-cloud/bigquery > gaxios > rimraf > glob > minimatch`
+- Add `pnpm audit --audit-level high --prod` to `pre-commit` script and CI test workflow so supply-chain issues are caught before they reach the publish gate
+
 ## [0.19.0] - 2026-02-19
 
 ### Added

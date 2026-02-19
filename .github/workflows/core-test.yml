@@ -136,6 +136,53 @@ jobs:
         working-directory: website
         run: pnpm build
 
+  security-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10.28.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Security audit
+        run: |
+          # Known acceptable advisories — all dev or docs-only; none ship in the published package.
+          #   GHSA-6pfh-p556-v868 — pnpm ZIP slip (dev dep, awaiting stable upstream fix)
+          #   GHSA-2g4f-4pwh-qvx6 — ajv ReDoS via $data option (eslint + website/docusaurus;
+          #                          $data option never enabled)
+          KNOWN_OK="GHSA-6pfh-p556-v868 GHSA-2g4f-4pwh-qvx6"
+
+          run_audit() {
+            local label="$1"; shift
+            echo "🔍 $label"
+            pnpm audit "$@" > /tmp/audit-output.txt 2>&1 && return 0
+            FOUND=$(grep -oE "GHSA-[a-z0-9-]+" /tmp/audit-output.txt | sort -u)
+            for id in $FOUND; do
+              if ! echo "$KNOWN_OK" | grep -q "$id"; then
+                echo "❌ Unknown vulnerability: $id"
+                cat /tmp/audit-output.txt
+                return 1
+              fi
+            done
+            echo "✅ All issues are known acceptable dev/docs-only vulnerabilities (not in published package)"
+          }
+
+          run_audit "Checking production dependencies..." --audit-level high --prod
+          run_audit "Checking all dependencies (including dev)..." --audit-level moderate
+          echo "✅ Security audit passed"
+
   verify-open-core:
     runs-on: ubuntu-latest
     steps:

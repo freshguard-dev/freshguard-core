@@ -1,6 +1,6 @@
 {
   "name": "@freshguard/freshguard-core",
-  "version": "0.19.0",
+  "version": "0.19.1",
   "description": "Open source data freshness monitoring engine",
   "type": "module",
   "main": "./dist/index.js",
@@ -49,7 +49,8 @@
     "test:full:complete": "pnpm test:db:setup:all && pnpm test:coverage && pnpm test:services:stop",
     "clean": "rm -rf dist",
     "prepare": "pnpm build",
-    "pre-commit": "pnpm lint:check && pnpm build && pnpm type-check && pnpm test:coverage",
+    "audit:prod": "pnpm audit --audit-level high --prod",
+    "pre-commit": "pnpm audit:prod && pnpm lint:check && pnpm build && pnpm type-check && pnpm test:coverage",
     "prepublishOnly": "pnpm build && pnpm test",
     "docs:dev": "pnpm --filter @freshguard/docs start",
     "docs:build": "pnpm --filter @freshguard/docs build"
@@ -95,6 +96,7 @@
     "overrides": {
       "fast-xml-parser": "5.3.6",
       "markdown-it": ">=14.1.1",
+      "minimatch": ">=10.2.1",
       "qs": ">=6.14.2",
       "rimraf": "^6.0.0"
     },

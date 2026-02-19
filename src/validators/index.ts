@@ -141,8 +141,8 @@ export function validateConnectorConfig(config: Partial<ConnectorConfig>): void 
 
   // Determine if an alternative auth method is configured (e.g. Entra Service Principal)
   const hasAltAuth = config.options !== undefined &&
-    typeof config.options['authentication'] === 'object' &&
-    config.options['authentication'] !== null;
+    typeof config.options.authentication === 'object' &&
+    config.options.authentication !== null;
 
   if (!hasAltAuth) {
     if (!config.username || typeof config.username !== 'string') {

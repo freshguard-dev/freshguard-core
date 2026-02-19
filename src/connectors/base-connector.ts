@@ -129,8 +129,8 @@ export abstract class BaseConnector implements Connector {
     }
 
     const hasAltAuth = config.options !== undefined &&
-      typeof config.options['authentication'] === 'object' &&
-      config.options['authentication'] !== null;
+      typeof config.options.authentication === 'object' &&
+      config.options.authentication !== null;
 
     if (!hasAltAuth) {
       if (!config.username) {

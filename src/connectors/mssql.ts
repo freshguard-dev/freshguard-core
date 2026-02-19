@@ -85,9 +85,9 @@ export class MSSQLConnector extends BaseConnector {
     }
 
     try {
-      const altAuth = (this.config.options?.['authentication'] &&
-        typeof this.config.options['authentication'] === 'object')
-        ? this.config.options['authentication'] as mssql.config['authentication']
+      const altAuth = (this.config.options?.authentication &&
+        typeof this.config.options.authentication === 'object')
+        ? this.config.options.authentication as mssql.config['authentication']
         : undefined;
 
       const poolConfig: mssql.config = {

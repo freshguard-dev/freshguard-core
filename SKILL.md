@@ -194,9 +194,9 @@ interface ConnectorConfig {
 | `SnowflakeConnector` | `host` = `<account>.snowflakecomputing.com` | `schema` (default: `'PUBLIC'`), `warehouse` |
 | `MySQLConnector` | Standard MySQL, port 3306 | — |
 | `RedshiftConnector` | PostgreSQL wire protocol, port 5439 | `schema` (default: `'public'`) |
-| `MSSQLConnector` | SQL Server, port 1433 | `schema` (default: `'dbo'`) |
-| `AzureSQLConnector` | `host` = `<server>.database.windows.net` | `schema` (default: `'dbo'`) |
-| `SynapseConnector` | `host` = `<workspace>.sql.azuresynapse.net` | `schema` (default: `'dbo'`) |
+| `MSSQLConnector` | SQL Server, port 1433 | `schema` (default: `'dbo'`), `authentication` (mssql auth block for Entra/SP auth) |
+| `AzureSQLConnector` | `host` = `<server>.database.windows.net` | `schema` (default: `'dbo'`), `authentication` (mssql auth block for Entra/SP auth) |
+| `SynapseConnector` | `host` = `<workspace>.sql.azuresynapse.net` | `schema` (default: `'dbo'`), `authentication` (mssql auth block for Entra/SP auth) |
 
 **Important**: If your tables live in a non-default schema, you **must** pass `options.schema`
 (or `options.location` for BigQuery). Without it, `listTables()` and `getTableSchema()` will
@@ -231,6 +231,22 @@ const mssql = new MSSQLConnector({
   host: 'sql.example.com', port: 1433,
   database: 'analytics', username: 'readonly', password: '...',
   options: { schema: 'staging' },
+});
+
+// Example: Azure SQL / Synapse with Entra Service Principal auth
+const spConnector = new AzureSQLConnector({
+  host: 'myserver.database.windows.net', port: 1433,
+  database: 'analytics', username: '', password: '', ssl: true,
+  options: {
+    authentication: {
+      type: 'azure-active-directory-service-principal-secret',
+      options: {
+        tenantId: process.env.AZURE_TENANT_ID,
+        clientId: process.env.AZURE_CLIENT_ID,
+        clientSecret: process.env.AZURE_CLIENT_SECRET,
+      },
+    },
+  },
 });
 ```
 

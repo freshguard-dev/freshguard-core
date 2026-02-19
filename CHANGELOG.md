@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-02-19
+
+### Added
+- **Entra Service Principal authentication** for `MSSQLConnector`, `AzureSQLConnector`, and
+  `SynapseConnector` — pass `options.authentication` with a standard mssql
+  `azure-active-directory-service-principal-secret` block; `username`/`password` are then
+  optional and may be left as empty strings
+
 ## [0.18.1] - 2026-02-18
 
 ### Security

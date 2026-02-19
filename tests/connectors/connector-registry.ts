@@ -191,6 +191,35 @@ export const CONNECTOR_REGISTRY: ConnectorRegistryEntry[] = [
   },
 
   {
+    name: 'Azure SQL (Service Principal)',
+    type: 'azure_sql',
+    createConnector: () =>
+      new AzureSQLConnector(
+        {
+          host: process.env.TEST_AZURE_SQL_HOST!,
+          port: 1433,
+          database: process.env.TEST_AZURE_SQL_DATABASE!,
+          username: '',
+          password: '',
+          ssl: true,
+          options: {
+            authentication: {
+              type: 'azure-active-directory-service-principal-secret',
+              options: {
+                tenantId: process.env.TEST_AZURE_TENANT_ID!,
+                clientId: process.env.TEST_AZURE_CLIENT_ID!,
+                clientSecret: process.env.TEST_AZURE_CLIENT_SECRET!,
+              },
+            },
+          },
+        },
+        { ...TEST_SECURITY_CONFIG, requireSSL: true },
+      ),
+    isAvailable: () => envDefined('TEST_AZURE_SQL_HOST', 'TEST_AZURE_SQL_DATABASE', 'TEST_AZURE_TENANT_ID', 'TEST_AZURE_CLIENT_ID', 'TEST_AZURE_CLIENT_SECRET'),
+    skipReason: () => 'Azure SQL SP auth env vars not set (TEST_AZURE_SQL_HOST, TEST_AZURE_SQL_DATABASE, TEST_AZURE_TENANT_ID, TEST_AZURE_CLIENT_ID, TEST_AZURE_CLIENT_SECRET)',
+  },
+
+  {
     name: 'Synapse',
     type: 'synapse',
     createConnector: () =>
@@ -207,5 +236,63 @@ export const CONNECTOR_REGISTRY: ConnectorRegistryEntry[] = [
       ),
     isAvailable: () => envDefined('TEST_SYNAPSE_HOST', 'TEST_SYNAPSE_DATABASE', 'TEST_SYNAPSE_USERNAME', 'TEST_SYNAPSE_PASSWORD'),
     skipReason: () => 'Synapse env vars not set (TEST_SYNAPSE_HOST, TEST_SYNAPSE_DATABASE, TEST_SYNAPSE_USERNAME, TEST_SYNAPSE_PASSWORD)',
+  },
+
+  {
+    name: 'Synapse (Service Principal)',
+    type: 'synapse',
+    createConnector: () =>
+      new SynapseConnector(
+        {
+          host: process.env.TEST_SYNAPSE_HOST!,
+          port: 1433,
+          database: process.env.TEST_SYNAPSE_DATABASE!,
+          username: '',
+          password: '',
+          ssl: true,
+          options: {
+            authentication: {
+              type: 'azure-active-directory-service-principal-secret',
+              options: {
+                tenantId: process.env.TEST_AZURE_TENANT_ID!,
+                clientId: process.env.TEST_AZURE_CLIENT_ID!,
+                clientSecret: process.env.TEST_AZURE_CLIENT_SECRET!,
+              },
+            },
+          },
+        },
+        { ...TEST_SECURITY_CONFIG, requireSSL: true },
+      ),
+    isAvailable: () => envDefined('TEST_SYNAPSE_HOST', 'TEST_SYNAPSE_DATABASE', 'TEST_AZURE_TENANT_ID', 'TEST_AZURE_CLIENT_ID', 'TEST_AZURE_CLIENT_SECRET'),
+    skipReason: () => 'Synapse SP auth env vars not set (TEST_SYNAPSE_HOST, TEST_SYNAPSE_DATABASE, TEST_AZURE_TENANT_ID, TEST_AZURE_CLIENT_ID, TEST_AZURE_CLIENT_SECRET)',
+  },
+
+  {
+    name: 'MSSQL (Service Principal)',
+    type: 'mssql',
+    createConnector: () =>
+      new MSSQLConnector(
+        {
+          host: process.env.TEST_MSSQL_SP_HOST!,
+          port: 1433,
+          database: process.env.TEST_MSSQL_SP_DATABASE!,
+          username: '',
+          password: '',
+          ssl: true,
+          options: {
+            authentication: {
+              type: 'azure-active-directory-service-principal-secret',
+              options: {
+                tenantId: process.env.TEST_AZURE_TENANT_ID!,
+                clientId: process.env.TEST_AZURE_CLIENT_ID!,
+                clientSecret: process.env.TEST_AZURE_CLIENT_SECRET!,
+              },
+            },
+          },
+        },
+        { ...TEST_SECURITY_CONFIG, requireSSL: true },
+      ),
+    isAvailable: () => envDefined('TEST_MSSQL_SP_HOST', 'TEST_MSSQL_SP_DATABASE', 'TEST_AZURE_TENANT_ID', 'TEST_AZURE_CLIENT_ID', 'TEST_AZURE_CLIENT_SECRET'),
+    skipReason: () => 'MSSQL SP auth env vars not set (TEST_MSSQL_SP_HOST, TEST_MSSQL_SP_DATABASE, TEST_AZURE_TENANT_ID, TEST_AZURE_CLIENT_ID, TEST_AZURE_CLIENT_SECRET)',
   },
 ];

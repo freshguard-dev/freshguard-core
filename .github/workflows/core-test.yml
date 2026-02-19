@@ -166,7 +166,10 @@ jobs:
 
           for pattern in "${FORBIDDEN_PATTERNS[@]}"; do
             echo "Checking for pattern: $pattern"
-            if grep -r -i "$pattern" src/ --include="*.ts" --include="*.js"; then
+            # Exclude comment-only lines (JSDoc /** * */ blocks and // lines)
+            # so that driver API property names in @example docs don't false-positive
+            if grep -r -i "$pattern" src/ --include="*.ts" --include="*.js" \
+               | grep -vE ':\s*(\*|//)'; then
               echo "❌ Found forbidden pattern: $pattern"
               EXIT_CODE=1
             fi

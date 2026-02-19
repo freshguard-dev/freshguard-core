@@ -36,11 +36,25 @@ import { validateConnectorConfig } from '../validators/index.js';
  * ```typescript
  * import { AzureSQLConnector } from '@freshguard/freshguard-core';
  *
+ * // Username/password auth
  * const connector = new AzureSQLConnector({
  *   host: 'myserver.database.windows.net', port: 1433,
  *   database: 'analytics',
  *   username: 'readonly',
  *   password: process.env.AZURE_SQL_PASSWORD!,
+ * });
+ *
+ * // Entra Service Principal auth
+ * const spConnector = new AzureSQLConnector({
+ *   host: 'myserver.database.windows.net', port: 1433,
+ *   database: 'analytics',
+ *   username: '', password: '', ssl: true,
+ *   options: {
+ *     authentication: {
+ *       type: 'azure-active-directory-service-principal-secret',
+ *       options: { tenantId: '...', clientId: '...', clientSecret: '...' },
+ *     },
+ *   },
  * });
  * ```
  */
@@ -73,12 +87,19 @@ export class AzureSQLConnector extends BaseConnector {
     }
 
     try {
+      const altAuth = (this.config.options?.authentication &&
+        typeof this.config.options.authentication === 'object')
+        ? this.config.options.authentication as mssql.config['authentication']
+        : undefined;
+
       const poolConfig: mssql.config = {
         server: this.config.host,
         port: this.config.port ?? 1433,
         database: this.config.database,
-        user: this.config.username,
-        password: this.config.password,
+        // Credentials: mutually exclusive with authentication block
+        ...(altAuth
+          ? { authentication: altAuth }
+          : { user: this.config.username, password: this.config.password }),
         options: {
           // Azure SQL always requires encryption
           encrypt: true,

@@ -722,6 +722,47 @@ describe('MSSQLConnector Security', () => {
     });
     expect(connector).toBeDefined();
   });
+
+  it('should accept Service Principal authentication via options.authentication', () => {
+    const spConfig: ConnectorConfig = {
+      host: 'myserver.database.windows.net',
+      port: 1433,
+      database: 'test_db',
+      username: '',
+      password: '',
+      ssl: true,
+      options: {
+        authentication: {
+          type: 'azure-active-directory-service-principal-secret',
+          options: { tenantId: 'tenant-id', clientId: 'client-id', clientSecret: 'client-secret' },
+        },
+      },
+    };
+    expect(() => new MSSQLConnector(spConfig)).not.toThrow();
+  });
+
+  it('should require username/password when no alternative auth is provided', () => {
+    expect(() => new MSSQLConnector({
+      host: 'myserver.database.windows.net',
+      port: 1433,
+      database: 'test_db',
+      username: '',
+      password: '',
+      ssl: true,
+    })).toThrow('Username is required');
+  });
+
+  it('should not bypass credential check when options.authentication is not an object', () => {
+    expect(() => new MSSQLConnector({
+      host: 'myserver.database.windows.net',
+      port: 1433,
+      database: 'test_db',
+      username: '',
+      password: '',
+      ssl: true,
+      options: { authentication: 'azure-active-directory-service-principal-secret' },
+    })).toThrow('Username is required');
+  });
 });
 
 describe('AzureSQLConnector Security', () => {
@@ -805,6 +846,47 @@ describe('AzureSQLConnector Security', () => {
     const connector = new AzureSQLConnector(validAzureSQLConfig);
     expect(connector).toBeDefined();
   });
+
+  it('should accept Service Principal authentication via options.authentication', () => {
+    const spConfig: ConnectorConfig = {
+      host: 'myserver.database.windows.net',
+      port: 1433,
+      database: 'test_db',
+      username: '',
+      password: '',
+      ssl: true,
+      options: {
+        authentication: {
+          type: 'azure-active-directory-service-principal-secret',
+          options: { tenantId: 'tenant-id', clientId: 'client-id', clientSecret: 'client-secret' },
+        },
+      },
+    };
+    expect(() => new AzureSQLConnector(spConfig)).not.toThrow();
+  });
+
+  it('should require username/password when no alternative auth is provided', () => {
+    expect(() => new AzureSQLConnector({
+      host: 'myserver.database.windows.net',
+      port: 1433,
+      database: 'test_db',
+      username: '',
+      password: '',
+      ssl: true,
+    })).toThrow('Username is required');
+  });
+
+  it('should not bypass credential check when options.authentication is not an object', () => {
+    expect(() => new AzureSQLConnector({
+      host: 'myserver.database.windows.net',
+      port: 1433,
+      database: 'test_db',
+      username: '',
+      password: '',
+      ssl: true,
+      options: { authentication: 'azure-active-directory-service-principal-secret' },
+    })).toThrow('Username is required');
+  });
 });
 
 describe('SynapseConnector Security', () => {
@@ -887,6 +969,47 @@ describe('SynapseConnector Security', () => {
   it('should default schema to dbo when not specified', () => {
     const connector = new SynapseConnector(validSynapseConfig);
     expect(connector).toBeDefined();
+  });
+
+  it('should accept Service Principal authentication via options.authentication', () => {
+    const spConfig: ConnectorConfig = {
+      host: 'myworkspace.sql.azuresynapse.net',
+      port: 1433,
+      database: 'test_db',
+      username: '',
+      password: '',
+      ssl: true,
+      options: {
+        authentication: {
+          type: 'azure-active-directory-service-principal-secret',
+          options: { tenantId: 'tenant-id', clientId: 'client-id', clientSecret: 'client-secret' },
+        },
+      },
+    };
+    expect(() => new SynapseConnector(spConfig)).not.toThrow();
+  });
+
+  it('should require username/password when no alternative auth is provided', () => {
+    expect(() => new SynapseConnector({
+      host: 'myworkspace.sql.azuresynapse.net',
+      port: 1433,
+      database: 'test_db',
+      username: '',
+      password: '',
+      ssl: true,
+    })).toThrow('Username is required');
+  });
+
+  it('should not bypass credential check when options.authentication is not an object', () => {
+    expect(() => new SynapseConnector({
+      host: 'myworkspace.sql.azuresynapse.net',
+      port: 1433,
+      database: 'test_db',
+      username: '',
+      password: '',
+      ssl: true,
+      options: { authentication: 'azure-active-directory-service-principal-secret' },
+    })).toThrow('Username is required');
   });
 });
 

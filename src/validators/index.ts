@@ -139,12 +139,19 @@ export function validateConnectorConfig(config: Partial<ConnectorConfig>): void 
     throw new Error('Database name is required and must be a string');
   }
 
-  if (!config.username || typeof config.username !== 'string') {
-    throw new Error('Username is required and must be a string');
-  }
+  // Determine if an alternative auth method is configured (e.g. Entra Service Principal)
+  const hasAltAuth = config.options !== undefined &&
+    typeof config.options.authentication === 'object' &&
+    config.options.authentication !== null;
 
-  if (!config.password || typeof config.password !== 'string') {
-    throw new Error('Password is required and must be a string');
+  if (!hasAltAuth) {
+    if (!config.username || typeof config.username !== 'string') {
+      throw new Error('Username is required and must be a string');
+    }
+
+    if (!config.password || typeof config.password !== 'string') {
+      throw new Error('Password is required and must be a string');
+    }
   }
 
   // Host validation
@@ -213,8 +220,9 @@ export function validateConnectorConfig(config: Partial<ConnectorConfig>): void 
     }
   }
 
-  // Username validation (prevent obvious injection attempts)
-  if (config.username.includes(';') || config.username.includes('--') || config.username.includes('/*')) {
+  // Username validation (prevent obvious injection attempts) — skip when alt auth is in use
+  if (!hasAltAuth && config.username &&
+      (config.username.includes(';') || config.username.includes('--') || config.username.includes('/*'))) {
     throw new Error('Username contains invalid characters');
   }
 

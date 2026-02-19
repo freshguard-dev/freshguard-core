@@ -33,12 +33,26 @@ import { validateConnectorConfig } from '../validators/index.js';
  * ```typescript
  * import { MSSQLConnector } from '@freshguard/freshguard-core';
  *
+ * // Username/password auth
  * const connector = new MSSQLConnector({
  *   host: 'sql-server.example.com', port: 1433,
  *   database: 'analytics',
  *   username: 'readonly',
  *   password: process.env.MSSQL_PASSWORD!,
  *   ssl: true,
+ * });
+ *
+ * // Entra Service Principal auth
+ * const spConnector = new MSSQLConnector({
+ *   host: 'myserver.database.windows.net', port: 1433,
+ *   database: 'analytics',
+ *   username: '', password: '', ssl: true,
+ *   options: {
+ *     authentication: {
+ *       type: 'azure-active-directory-service-principal-secret',
+ *       options: { tenantId: '...', clientId: '...', clientSecret: '...' },
+ *     },
+ *   },
  * });
  * ```
  */
@@ -71,12 +85,19 @@ export class MSSQLConnector extends BaseConnector {
     }
 
     try {
+      const altAuth = (this.config.options?.authentication &&
+        typeof this.config.options.authentication === 'object')
+        ? this.config.options.authentication as mssql.config['authentication']
+        : undefined;
+
       const poolConfig: mssql.config = {
         server: this.config.host,
         port: this.config.port ?? 1433,
         database: this.config.database,
-        user: this.config.username,
-        password: this.config.password,
+        // Credentials: mutually exclusive with authentication block
+        ...(altAuth
+          ? { authentication: altAuth }
+          : { user: this.config.username, password: this.config.password }),
         options: {
           encrypt: this.requireSSL || this.config.ssl !== false,
           trustServerCertificate: false,

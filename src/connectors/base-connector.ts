@@ -128,12 +128,18 @@ export abstract class BaseConnector implements Connector {
       throw new Error('Database is required');
     }
 
-    if (!config.username) {
-      throw new Error('Username is required');
-    }
+    const hasAltAuth = config.options !== undefined &&
+      typeof config.options.authentication === 'object' &&
+      config.options.authentication !== null;
 
-    if (!config.password) {
-      throw new Error('Password is required');
+    if (!hasAltAuth) {
+      if (!config.username) {
+        throw new Error('Username is required');
+      }
+
+      if (!config.password) {
+        throw new Error('Password is required');
+      }
     }
 
     if (config.port && (config.port < 1 || config.port > 65535)) {

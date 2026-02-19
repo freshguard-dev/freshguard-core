@@ -48,8 +48,11 @@ export interface ConnectorConfig {
    * | PostgreSQL | `schema` | `'public'` | Target schema |
    * | Redshift | `schema` | `'public'` | Target schema |
    * | MSSQL | `schema` | `'dbo'` | Target schema |
+   * | MSSQL | `authentication` | *(none — uses username/password)* | mssql `authentication` block for AAD/SP auth |
    * | Azure SQL | `schema` | `'dbo'` | Target schema |
+   * | Azure SQL | `authentication` | *(none — uses username/password)* | mssql `authentication` block for AAD/SP auth |
    * | Synapse | `schema` | `'dbo'` | Target schema |
+   * | Synapse | `authentication` | *(none — uses username/password)* | mssql `authentication` block for AAD/SP auth |
    */
   options?: Record<string, unknown>;
 }
